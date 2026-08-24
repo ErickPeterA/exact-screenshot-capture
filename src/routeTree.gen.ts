@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as JornadaSessionIdRouteImport } from './routes/jornada/$sessionId'
 import { Route as JornadaInicioRouteImport } from './routes/jornada/inicio'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JornadaSessionIdRoute = JornadaSessionIdRouteImport.update({
+  id: '/jornada/$sessionId',
+  path: '/jornada/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JornadaInicioRoute = JornadaInicioRouteImport.update({
@@ -25,27 +31,31 @@ const JornadaInicioRoute = JornadaInicioRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/jornada/$sessionId': typeof JornadaSessionIdRoute
   '/jornada/inicio': typeof JornadaInicioRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/jornada/$sessionId': typeof JornadaSessionIdRoute
   '/jornada/inicio': typeof JornadaInicioRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/jornada/$sessionId': typeof JornadaSessionIdRoute
   '/jornada/inicio': typeof JornadaInicioRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/jornada/inicio'
+  fullPaths: '/' | '/jornada/$sessionId' | '/jornada/inicio'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/jornada/inicio'
-  id: '__root__' | '/' | '/jornada/inicio'
+  to: '/' | '/jornada/$sessionId' | '/jornada/inicio'
+  id: '__root__' | '/' | '/jornada/$sessionId' | '/jornada/inicio'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  JornadaSessionIdRoute: typeof JornadaSessionIdRoute
   JornadaInicioRoute: typeof JornadaInicioRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/jornada/$sessionId': {
+      id: '/jornada/$sessionId'
+      path: '/jornada/$sessionId'
+      fullPath: '/jornada/$sessionId'
+      preLoaderRoute: typeof JornadaSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/jornada/inicio': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  JornadaSessionIdRoute: JornadaSessionIdRoute,
   JornadaInicioRoute: JornadaInicioRoute,
 }
 export const routeTree = rootRouteImport
