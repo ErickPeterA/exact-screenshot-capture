@@ -10,33 +10,43 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as JornadaInicioRouteImport } from './routes/jornada/inicio'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const JornadaInicioRoute = JornadaInicioRouteImport.update({
+  id: '/jornada/inicio',
+  path: '/jornada/inicio',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/jornada/inicio': typeof JornadaInicioRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/jornada/inicio': typeof JornadaInicioRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/jornada/inicio': typeof JornadaInicioRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/jornada/inicio'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/jornada/inicio'
+  id: '__root__' | '/' | '/jornada/inicio'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  JornadaInicioRoute: typeof JornadaInicioRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +58,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/jornada/inicio': {
+      id: '/jornada/inicio'
+      path: '/jornada/inicio'
+      fullPath: '/jornada/inicio'
+      preLoaderRoute: typeof JornadaInicioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  JornadaInicioRoute: JornadaInicioRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
