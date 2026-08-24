@@ -10,33 +10,69 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as JornadaSessionIdRouteImport } from './routes/jornada/$sessionId'
+import { Route as JornadaInicioRouteImport } from './routes/jornada/inicio'
+import { Route as ResultadoSessionIdRouteImport } from './routes/resultado/$sessionId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const JornadaSessionIdRoute = JornadaSessionIdRouteImport.update({
+  id: '/jornada/$sessionId',
+  path: '/jornada/$sessionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JornadaInicioRoute = JornadaInicioRouteImport.update({
+  id: '/jornada/inicio',
+  path: '/jornada/inicio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResultadoSessionIdRoute = ResultadoSessionIdRouteImport.update({
+  id: '/resultado/$sessionId',
+  path: '/resultado/$sessionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/jornada/$sessionId': typeof JornadaSessionIdRoute
+  '/jornada/inicio': typeof JornadaInicioRoute
+  '/resultado/$sessionId': typeof ResultadoSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/jornada/$sessionId': typeof JornadaSessionIdRoute
+  '/jornada/inicio': typeof JornadaInicioRoute
+  '/resultado/$sessionId': typeof ResultadoSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/jornada/$sessionId': typeof JornadaSessionIdRoute
+  '/jornada/inicio': typeof JornadaInicioRoute
+  '/resultado/$sessionId': typeof ResultadoSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    '/' | '/jornada/$sessionId' | '/jornada/inicio' | '/resultado/$sessionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/jornada/$sessionId' | '/jornada/inicio' | '/resultado/$sessionId'
+  id:
+    | '__root__'
+    | '/'
+    | '/jornada/$sessionId'
+    | '/jornada/inicio'
+    | '/resultado/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  JornadaSessionIdRoute: typeof JornadaSessionIdRoute
+  JornadaInicioRoute: typeof JornadaInicioRoute
+  ResultadoSessionIdRoute: typeof ResultadoSessionIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +84,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/jornada/$sessionId': {
+      id: '/jornada/$sessionId'
+      path: '/jornada/$sessionId'
+      fullPath: '/jornada/$sessionId'
+      preLoaderRoute: typeof JornadaSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/jornada/inicio': {
+      id: '/jornada/inicio'
+      path: '/jornada/inicio'
+      fullPath: '/jornada/inicio'
+      preLoaderRoute: typeof JornadaInicioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/resultado/$sessionId': {
+      id: '/resultado/$sessionId'
+      path: '/resultado/$sessionId'
+      fullPath: '/resultado/$sessionId'
+      preLoaderRoute: typeof ResultadoSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  JornadaSessionIdRoute: JornadaSessionIdRoute,
+  JornadaInicioRoute: JornadaInicioRoute,
+  ResultadoSessionIdRoute: ResultadoSessionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
