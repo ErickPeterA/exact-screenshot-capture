@@ -119,7 +119,9 @@ function JourneyPage() {
     () =>
       buildStates(
         new Set(
-          (current?.path ?? []).map((c) => NODE_BY_CODE[c]?.territory).filter(Boolean),
+          (current?.path ?? [])
+            .map((c) => NODE_BY_CODE[c]?.territory)
+            .filter((t): t is TerritoryCode => Boolean(t)),
         ),
         (node?.territory ?? null) as TerritoryCode | null,
       ),

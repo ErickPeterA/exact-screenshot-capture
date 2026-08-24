@@ -61,7 +61,7 @@ export const submitLeadFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { saveLead } = await import("./journey.server");
-    await saveLead(data);
+    await saveLead({ ...data, whatsapp: data.whatsapp ?? "" });
     return { ok: true };
   });
 

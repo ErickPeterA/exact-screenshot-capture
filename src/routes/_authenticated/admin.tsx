@@ -274,7 +274,13 @@ function AdminPage() {
   );
 }
 
-function Metric({ label, value }: { label: string; value?: number | string }) {
+function Metric({
+  label,
+  value,
+}: {
+  label: string;
+  value?: number | string | undefined;
+}) {
   return (
     <div className="surface-card p-5">
       <p className="text-xs tracking-wide text-muted-foreground uppercase">{label}</p>
