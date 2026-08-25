@@ -18,12 +18,14 @@ export function QuestionCard({
   selected,
   saving,
   onSelect,
+  variant = "default",
 }: {
   node: JourneyNode;
   territoryName: string;
   selected?: string | null;
   saving: boolean;
   onSelect: (optionCode: string) => void;
+  variant?: "default" | "board";
 }) {
   const [pending, setPending] = useState<string | null>(null);
 
@@ -31,8 +33,13 @@ export function QuestionCard({
     <section
       key={node.code}
       className={cn(
-        "surface-card animate-rise border-l-4 p-6 md:p-9",
-        TERRITORY_ACCENT[node.territory] ?? "border-l-navy",
+        "animate-rise",
+        variant === "default"
+          ? cn(
+              "surface-card border-l-4 p-6 md:p-9",
+              TERRITORY_ACCENT[node.territory] ?? "border-l-navy",
+            )
+          : "p-0",
       )}
       aria-labelledby={`q-${node.code}`}
     >
@@ -46,11 +53,10 @@ export function QuestionCard({
         {node.question}
       </h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Responda de acordo com a realidade atual — não existem respostas certas ou
-        erradas.
+        Responda de acordo com a realidade atual — não existem respostas certas ou erradas.
       </p>
 
-      <div className="mt-6 grid gap-3">
+      <div className={cn("mt-6 grid gap-3", variant === "board" && "md:gap-2")}>
         {node.options.map((option) => {
           const isSelected = (pending ?? selected) === option.code;
           return (
@@ -64,7 +70,8 @@ export function QuestionCard({
               }}
               aria-pressed={isSelected}
               className={cn(
-                "group w-full rounded-xl border px-4 py-4 text-left transition-all duration-200",
+                "group w-full rounded-xl border px-4 text-left transition-all duration-200",
+                variant === "board" ? "py-3" : "py-4",
                 "hover:border-primary/40 hover:bg-secondary hover:shadow-soft",
                 "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                 isSelected

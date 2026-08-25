@@ -5,20 +5,17 @@ import { useMemo, useRef, useState } from "react";
 
 import { Wordmark } from "@/components/brand/Wordmark";
 import { Button } from "@/components/ui/button";
+import { JourneyBoard } from "@/components/journey/JourneyBoard";
 import { QuestionCard } from "@/components/journey/QuestionCard";
 import {
   DiscoveryBackpack,
   DiscoveryModal,
   type Discovery,
 } from "@/components/journey/DiscoveryLayer";
-import { TerritoryProgress, buildStates } from "@/components/journey/TerritoryProgress";
+import { buildStates } from "@/components/journey/TerritoryProgress";
 import { NODE_BY_CODE, TERRITORY_BY_CODE, type TerritoryCode } from "@/journey/nodes";
 import { SERVICE_BY_CODE } from "@/journey/services";
-import {
-  answerQuestionFn,
-  getJourneyStateFn,
-  trackEventFn,
-} from "@/lib/journey.functions";
+import { answerQuestionFn, getJourneyStateFn, trackEventFn } from "@/lib/journey.functions";
 
 export const Route = createFileRoute("/jornada/$sessionId")({
   head: () => ({
@@ -129,10 +126,12 @@ function JourneyPage() {
   );
 
   const answeredIndex = current?.path.indexOf(nodeCode ?? "") ?? -1;
-  const previousNode =
-    answeredIndex > 0 ? (current?.path[answeredIndex - 1] ?? null) : null;
-  const selected =
-    current?.answers.find((a) => a.nodeCode === nodeCode)?.optionCode ?? null;
+  const previousNode = answeredIndex > 0 ? (current?.path[answeredIndex - 1] ?? null) : null;
+  const selected = current?.answers.find((a) => a.nodeCode === nodeCode)?.optionCode ?? null;
+  const answeredNodeCodes = useMemo(
+    () => new Set((current?.answers ?? []).map((answer) => answer.nodeCode)),
+    [current?.answers],
+  );
 
   if (stateQuery.isLoading) {
     return <CenterMessage text="Carregando sua jornada..." />;
@@ -157,7 +156,7 @@ function JourneyPage() {
   }
 
   const totalAnswered = current.answers.length;
-  const progress = Math.min(95, Math.round((totalAnswered / 18) * 100));
+  const progress = Math.min(95, Math.round((totalAnswered / 28) * 100));
 
   return (
     <main className="min-h-screen pb-20">
@@ -174,26 +173,28 @@ function JourneyPage() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-6xl gap-8 px-6 py-8 md:grid-cols-[220px_1fr] md:py-12">
-        <aside className="md:pt-2">
+      <JourneyBoard
+        states={states}
+        currentNodeCode={nodeCode}
+        answeredNodeCodes={answeredNodeCodes}
+        progress={progress}
+        territoryIntro={territory?.intro}
+      >
+        <aside className="hidden">
           <p className="mb-3 hidden text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase md:block">
             Territórios
           </p>
-          <TerritoryProgress states={states} />
-          <p className="mt-4 hidden text-sm text-muted-foreground md:block">
-            {territory?.intro}
-          </p>
+          <p className="mt-4 hidden text-sm text-muted-foreground md:block">{territory?.intro}</p>
         </aside>
 
-        <div>
+        <div className="flex h-full flex-col justify-center">
           <QuestionCard
             node={node}
             territoryName={territory?.name ?? ""}
             selected={selected}
             saving={mutation.isPending}
-            onSelect={(optionCode) =>
-              mutation.mutate({ nodeCode: node.code, optionCode })
-            }
+            variant="board"
+            onSelect={(optionCode) => mutation.mutate({ nodeCode: node.code, optionCode })}
           />
 
           <div className="mt-5 flex items-center justify-between">
@@ -206,17 +207,13 @@ function JourneyPage() {
               ← Revisar resposta anterior
             </Button>
             {override && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setOverride(null)}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setOverride(null)}>
                 Voltar para onde parei
               </Button>
             )}
           </div>
         </div>
-      </div>
+      </JourneyBoard>
 
       <DiscoveryModal
         discovery={discovery}
@@ -229,13 +226,7 @@ function JourneyPage() {
   );
 }
 
-function CenterMessage({
-  text,
-  children,
-}: {
-  text: string;
-  children?: React.ReactNode;
-}) {
+function CenterMessage({ text, children }: { text: string; children?: React.ReactNode }) {
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="text-center">
