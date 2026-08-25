@@ -98,15 +98,17 @@ export function JourneyBoard({
   children: ReactNode;
 }) {
   return (
-    <section className="mx-auto max-w-7xl px-4 py-5 sm:px-6 md:py-8">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 md:mb-6">
-        <div>
+    <section className="mx-auto flex h-full max-w-7xl flex-col px-3 py-3 sm:px-4">
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-3">
+        <div className="min-w-0">
           <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
             Tabuleiro da jornada
           </p>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">{territoryIntro}</p>
+          <p className="mt-0.5 hidden max-w-xl truncate text-xs text-muted-foreground sm:block">
+            {territoryIntro}
+          </p>
         </div>
-        <div className="min-w-40 rounded-lg border border-border bg-surface px-3 py-2 shadow-soft">
+        <div className="w-36 shrink-0 rounded-lg border border-border bg-surface px-3 py-2 shadow-soft sm:w-44">
           <div className="flex items-center justify-between gap-4 text-xs font-semibold text-muted-foreground">
             <span>Avanco</span>
             <span>{progress}%</span>
@@ -126,7 +128,7 @@ export function JourneyBoard({
         answeredNodeCodes={answeredNodeCodes}
       />
 
-      <div className="relative rounded-2xl border border-border bg-[linear-gradient(135deg,var(--surface)_0%,var(--surface-2)_100%)] p-3 shadow-card md:grid md:aspect-square md:min-h-[720px] md:grid-cols-9 md:grid-rows-9 md:gap-2">
+      <div className="relative min-h-0 flex-1 rounded-2xl border border-border bg-[linear-gradient(135deg,var(--surface)_0%,var(--surface-2)_100%)] p-2 shadow-card md:grid md:grid-cols-9 md:grid-rows-9 md:gap-1.5">
         {TILES.map((tile, index) => (
           <BoardSpace
             key={tile.code}
@@ -137,17 +139,17 @@ export function JourneyBoard({
         ))}
 
         <div
-          className="rounded-xl border border-border bg-surface p-4 shadow-lift sm:p-5"
+          className="min-h-0 rounded-xl border border-border bg-surface p-3 shadow-lift sm:p-4"
           style={{ gridColumn: "3 / span 5", gridRow: "3 / span 5" }}
         >
-          <div className="mb-4 grid grid-cols-3 gap-2">
+          <div className="mb-3 grid grid-cols-3 gap-1.5">
             {states.map((state) => {
               const style = TERRITORY_STYLE[state.code];
               return (
                 <div
                   key={state.code}
                   className={cn(
-                    "flex min-h-12 items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium",
+                    "flex min-h-9 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] font-medium",
                     state.status === "current"
                       ? "border-primary/35 bg-secondary text-foreground"
                       : "border-border bg-surface-2 text-muted-foreground",
@@ -183,8 +185,8 @@ function MobileBoardTrack({
   answeredNodeCodes: Set<string>;
 }) {
   return (
-    <div className="mb-5 overflow-x-auto pb-2 md:hidden" aria-label="Trilha da jornada">
-      <ol className="flex min-w-max gap-2">
+    <div className="mb-2 shrink-0 overflow-x-auto pb-1 md:hidden" aria-label="Trilha da jornada">
+      <ol className="flex min-w-max gap-1.5">
         {tiles.map((tile, index) => {
           const status = statusFor(tile.code, currentNodeCode, answeredNodeCodes);
           const style = TERRITORY_STYLE[tile.territory];
@@ -192,7 +194,7 @@ function MobileBoardTrack({
             <li
               key={tile.code}
               className={cn(
-                "grid h-20 w-20 shrink-0 place-items-center rounded-xl border text-center shadow-soft",
+                "grid h-14 w-14 shrink-0 place-items-center rounded-lg border text-center shadow-soft",
                 style.tile,
                 status === "current" && "ring-2 ring-offset-2 ring-offset-background",
                 status === "current" && style.active,
@@ -200,9 +202,9 @@ function MobileBoardTrack({
               )}
               aria-current={status === "current" ? "step" : undefined}
             >
-              <TileStatus status={status} marker={style.marker} />
-              <span className="text-[10px] font-bold text-foreground">{index + 1}</span>
-              <span className="max-w-16 truncate text-[10px] font-semibold text-muted-foreground">
+              <TileStatus status={status} marker={style.marker} compact />
+              <span className="text-[9px] font-bold text-foreground">{index + 1}</span>
+              <span className="max-w-12 truncate text-[9px] font-semibold text-muted-foreground">
                 {tile.shortTitle}
               </span>
             </li>
@@ -228,7 +230,7 @@ function BoardSpace({
   return (
     <div
       className={cn(
-        "relative hidden min-h-0 flex-col justify-between rounded-xl border p-2 shadow-soft transition-all md:flex",
+        "relative hidden min-h-0 flex-col justify-between rounded-lg border p-1.5 shadow-soft transition-all md:flex",
         style.tile,
         status === "current" &&
           "z-10 scale-[1.03] shadow-lift ring-2 ring-offset-2 ring-offset-background",
@@ -240,7 +242,7 @@ function BoardSpace({
     >
       <div className="flex items-center justify-between gap-1">
         <span className="text-[11px] font-bold text-foreground">{index + 1}</span>
-        <TileStatus status={status} marker={style.marker} />
+        <TileStatus status={status} marker={style.marker} compact />
       </div>
       <div>
         <p className="truncate text-[10px] font-semibold text-muted-foreground">{tile.title}</p>
@@ -253,27 +255,45 @@ function BoardSpace({
 function TileStatus({
   status,
   marker,
+  compact = false,
 }: {
   status: "done" | "current" | "pending";
   marker: string;
+  compact?: boolean;
 }) {
   if (status === "done") {
     return (
-      <span className="grid size-5 place-items-center rounded-full bg-finance text-navy-foreground">
-        <Check className="size-3" />
+      <span
+        className={cn(
+          "grid place-items-center rounded-full bg-finance text-navy-foreground",
+          compact ? "size-4" : "size-5",
+        )}
+      >
+        <Check className={compact ? "size-2.5" : "size-3"} />
       </span>
     );
   }
   if (status === "current") {
     return (
-      <span className={cn("grid size-6 place-items-center rounded-full text-white", marker)}>
-        <MapPin className="size-3.5" />
+      <span
+        className={cn(
+          "grid place-items-center rounded-full text-white",
+          compact ? "size-5" : "size-6",
+          marker,
+        )}
+      >
+        <MapPin className={compact ? "size-3" : "size-3.5"} />
       </span>
     );
   }
   return (
-    <span className="grid size-5 place-items-center rounded-full border border-border bg-surface text-muted-foreground">
-      <Flag className="size-3" />
+    <span
+      className={cn(
+        "grid place-items-center rounded-full border border-border bg-surface text-muted-foreground",
+        compact ? "size-4" : "size-5",
+      )}
+    >
+      <Flag className={compact ? "size-2.5" : "size-3"} />
     </span>
   );
 }

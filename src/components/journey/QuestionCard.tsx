@@ -48,15 +48,18 @@ export function QuestionCard({
       </p>
       <h2
         id={`q-${node.code}`}
-        className="mt-3 text-xl leading-snug font-semibold text-balance md:text-2xl"
+        className={cn(
+          "mt-3 leading-snug font-semibold text-balance",
+          variant === "board" ? "text-base md:text-xl" : "text-xl md:text-2xl",
+        )}
       >
         {node.question}
       </h2>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <p className={cn("mt-2 text-muted-foreground", variant === "board" ? "text-xs" : "text-sm")}>
         Responda de acordo com a realidade atual — não existem respostas certas ou erradas.
       </p>
 
-      <div className={cn("mt-6 grid gap-3", variant === "board" && "md:gap-2")}>
+      <div className={cn("mt-6 grid gap-3", variant === "board" && "mt-4 gap-2")}>
         {node.options.map((option) => {
           const isSelected = (pending ?? selected) === option.code;
           return (
@@ -71,7 +74,7 @@ export function QuestionCard({
               aria-pressed={isSelected}
               className={cn(
                 "group w-full rounded-xl border px-4 text-left transition-all duration-200",
-                variant === "board" ? "py-3" : "py-4",
+                variant === "board" ? "py-2.5" : "py-4",
                 "hover:border-primary/40 hover:bg-secondary hover:shadow-soft",
                 "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                 isSelected
@@ -93,9 +96,21 @@ export function QuestionCard({
                   ✓
                 </span>
                 <span>
-                  <span className="block text-[15px] font-medium">{option.label}</span>
+                  <span
+                    className={cn(
+                      "block font-medium",
+                      variant === "board" ? "text-sm" : "text-[15px]",
+                    )}
+                  >
+                    {option.label}
+                  </span>
                   {option.description && (
-                    <span className="mt-1 block text-sm text-muted-foreground">
+                    <span
+                      className={cn(
+                        "mt-1 block text-muted-foreground",
+                        variant === "board" ? "text-xs" : "text-sm",
+                      )}
+                    >
                       {option.description}
                     </span>
                   )}

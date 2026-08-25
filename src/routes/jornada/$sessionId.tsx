@@ -159,9 +159,9 @@ function JourneyPage() {
   const progress = Math.min(95, Math.round((totalAnswered / 28) * 100));
 
   return (
-    <main className="min-h-screen pb-20">
-      <header className="border-b border-border bg-surface/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
+    <main className="flex h-svh flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-border bg-surface/80 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Wordmark />
           <DiscoveryBackpack discoveries={backpack} />
         </div>
@@ -173,47 +173,49 @@ function JourneyPage() {
         </div>
       </header>
 
-      <JourneyBoard
-        states={states}
-        currentNodeCode={nodeCode}
-        answeredNodeCodes={answeredNodeCodes}
-        progress={progress}
-        territoryIntro={territory?.intro}
-      >
-        <aside className="hidden">
-          <p className="mb-3 hidden text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase md:block">
-            Territórios
-          </p>
-          <p className="mt-4 hidden text-sm text-muted-foreground md:block">{territory?.intro}</p>
-        </aside>
+      <div className="min-h-0 flex-1">
+        <JourneyBoard
+          states={states}
+          currentNodeCode={nodeCode}
+          answeredNodeCodes={answeredNodeCodes}
+          progress={progress}
+          territoryIntro={territory?.intro}
+        >
+          <aside className="hidden">
+            <p className="mb-3 hidden text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase md:block">
+              Territórios
+            </p>
+            <p className="mt-4 hidden text-sm text-muted-foreground md:block">{territory?.intro}</p>
+          </aside>
 
-        <div className="flex h-full flex-col justify-center">
-          <QuestionCard
-            node={node}
-            territoryName={territory?.name ?? ""}
-            selected={selected}
-            saving={mutation.isPending}
-            variant="board"
-            onSelect={(optionCode) => mutation.mutate({ nodeCode: node.code, optionCode })}
-          />
+          <div className="flex h-full flex-col justify-center">
+            <QuestionCard
+              node={node}
+              territoryName={territory?.name ?? ""}
+              selected={selected}
+              saving={mutation.isPending}
+              variant="board"
+              onSelect={(optionCode) => mutation.mutate({ nodeCode: node.code, optionCode })}
+            />
 
-          <div className="mt-5 flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={!previousNode}
-              onClick={() => setOverride(previousNode)}
-            >
-              ← Revisar resposta anterior
-            </Button>
-            {override && (
-              <Button variant="ghost" size="sm" onClick={() => setOverride(null)}>
-                Voltar para onde parei
+            <div className="mt-5 flex items-center justify-between">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!previousNode}
+                onClick={() => setOverride(previousNode)}
+              >
+                ← Revisar resposta anterior
               </Button>
-            )}
+              {override && (
+                <Button variant="ghost" size="sm" onClick={() => setOverride(null)}>
+                  Voltar para onde parei
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      </JourneyBoard>
+        </JourneyBoard>
+      </div>
 
       <DiscoveryModal
         discovery={discovery}
