@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { NODES, TERRITORY_BY_CODE, type TerritoryCode } from "@/journey/nodes";
-import type { TerritoryState } from "@/components/journey/TerritoryProgress";
 
 const BOARD_SIZE = 9;
 
@@ -83,118 +82,52 @@ const TILES: BoardTile[] = [
 ];
 
 export function JourneyBoard({
-  states,
   currentNodeCode,
   answeredNodeCodes,
-  progress,
-  territoryIntro,
   children,
 }: {
-  states: TerritoryState[];
   currentNodeCode: string | null;
   answeredNodeCodes: Set<string>;
-  progress: number;
-  territoryIntro: string | undefined;
   children: ReactNode;
 }) {
   return (
-    <section className="mx-auto flex h-full w-full max-w-7xl flex-col px-3 py-3 sm:px-4">
-      <div className="mb-2 flex shrink-0 items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-            Tabuleiro da jornada
-          </p>
-          <p className="mt-0.5 hidden max-w-xl truncate text-xs text-muted-foreground sm:block">
-            {territoryIntro}
-          </p>
-        </div>
-        <div className="w-36 shrink-0 rounded-lg border border-border bg-surface px-3 py-2 shadow-soft sm:w-44">
-          <div className="flex items-center justify-between gap-4 text-xs font-semibold text-muted-foreground">
-            <span>Avanco</span>
-            <span>{progress}%</span>
-          </div>
-          <div className="mt-2 h-2 rounded-full bg-secondary">
+    <section className="mx-auto flex h-full w-full max-w-7xl flex-col px-3 py-2 sm:px-4">
+      <MobileBoardTrack
+        tiles={TILES}
+        currentNodeCode={currentNodeCode}
+        answeredNodeCodes={answeredNodeCodes}
+      />
+
+      <div className="hidden min-h-0 flex-1 items-center justify-center md:flex">
+        <div
+          className="aspect-square rounded-2xl border border-border bg-[linear-gradient(135deg,var(--surface)_0%,var(--surface-2)_100%)] p-2 shadow-card"
+          style={{
+            width: "min(100%, calc(100svh - 6.25rem), 920px)",
+            height: "min(100%, calc(100svh - 6.25rem), 920px)",
+          }}
+        >
+          <div className="grid size-full grid-cols-9 grid-rows-9 gap-1.5">
+            {TILES.map((tile, index) => (
+              <BoardSpace
+                key={tile.code}
+                tile={tile}
+                index={index}
+                status={statusFor(tile.code, currentNodeCode, answeredNodeCodes)}
+              />
+            ))}
+
             <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
+              className="min-h-0 overflow-hidden rounded-xl border border-border bg-surface/95 p-3 shadow-lift"
+              style={{ gridColumn: "3 / span 5", gridRow: "3 / span 5" }}
+            >
+              {children}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-3 md:grid-cols-[minmax(0,1fr)_minmax(360px,430px)] md:grid-rows-1">
-        <div className="flex min-h-0 flex-col">
-          <MobileBoardTrack
-            tiles={TILES}
-            currentNodeCode={currentNodeCode}
-            answeredNodeCodes={answeredNodeCodes}
-          />
-
-          <div className="hidden min-h-0 flex-1 items-center justify-center md:flex">
-            <div
-              className="aspect-square rounded-2xl border border-border bg-[linear-gradient(135deg,var(--surface)_0%,var(--surface-2)_100%)] p-2 shadow-card"
-              style={{
-                width: "min(100%, calc(100svh - 7.5rem))",
-                height: "min(100%, calc(100svh - 7.5rem))",
-              }}
-            >
-              <div className="grid size-full grid-cols-9 grid-rows-9 gap-1.5">
-                {TILES.map((tile, index) => (
-                  <BoardSpace
-                    key={tile.code}
-                    tile={tile}
-                    index={index}
-                    status={statusFor(tile.code, currentNodeCode, answeredNodeCodes)}
-                  />
-                ))}
-
-                <div
-                  className="grid place-items-center rounded-xl border border-dashed border-border bg-surface/75 p-4 text-center"
-                  style={{ gridColumn: "3 / span 5", gridRow: "3 / span 5" }}
-                >
-                  <div>
-                    <p className="font-display text-lg font-semibold text-foreground">
-                      Jornada do Empreendedor
-                    </p>
-                    <p className="mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground">
-                      Acompanhe sua posicao no tabuleiro enquanto responde no painel ao lado.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <aside className="flex min-h-0 flex-col rounded-2xl border border-border bg-surface p-3 shadow-lift sm:p-4">
-          <div className="mb-3 grid shrink-0 grid-cols-3 gap-1.5">
-            {states.map((state) => {
-              const style = TERRITORY_STYLE[state.code];
-              return (
-                <div
-                  key={state.code}
-                  className={cn(
-                    "flex min-h-9 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] font-medium",
-                    state.status === "current"
-                      ? "border-primary/35 bg-secondary text-foreground"
-                      : "border-border bg-surface-2 text-muted-foreground",
-                  )}
-                >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "size-2.5 shrink-0 rounded-full",
-                      state.status === "pending" ? "bg-border" : style.mobile,
-                      state.status === "current" && "animate-glow",
-                    )}
-                  />
-                  <span className="truncate">{state.name}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
-        </aside>
+      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-surface p-3 shadow-lift md:hidden">
+        {children}
       </div>
     </section>
   );
@@ -255,7 +188,7 @@ function BoardSpace({
   return (
     <div
       className={cn(
-        "relative hidden min-h-0 flex-col justify-between rounded-lg border p-1.5 shadow-soft transition-all md:flex",
+        "relative hidden min-h-0 overflow-hidden flex-col justify-between rounded-lg border p-1.5 shadow-soft transition-all md:flex",
         style.tile,
         status === "current" &&
           "z-10 scale-[1.03] shadow-lift ring-2 ring-offset-2 ring-offset-background",

@@ -43,26 +43,36 @@ export function QuestionCard({
       )}
       aria-labelledby={`q-${node.code}`}
     >
-      <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+      <p
+        className={cn(
+          "font-semibold tracking-[0.14em] text-muted-foreground uppercase",
+          variant === "board" ? "text-[10px]" : "text-xs",
+        )}
+      >
         {territoryName}
       </p>
       <h2
         id={`q-${node.code}`}
         className={cn(
-          "mt-3 leading-snug font-semibold text-balance",
-          variant === "board" ? "text-base md:text-xl" : "text-xl md:text-2xl",
+          "leading-snug font-semibold text-balance",
+          variant === "board" ? "mt-2 text-sm md:text-lg" : "mt-3 text-xl md:text-2xl",
         )}
       >
         {node.question}
       </h2>
-      <p className={cn("mt-2 text-muted-foreground", variant === "board" ? "text-xs" : "text-sm")}>
+      <p
+        className={cn(
+          "text-muted-foreground",
+          variant === "board" ? "mt-1 text-[11px]" : "mt-2 text-sm",
+        )}
+      >
         Responda de acordo com a realidade atual — não existem respostas certas ou erradas.
       </p>
 
       <div
         className={cn(
           "mt-6 grid gap-3",
-          variant === "board" && "mt-4 min-h-0 flex-1 content-start gap-2 overflow-y-auto pr-1",
+          variant === "board" && "mt-3 min-h-0 flex-1 content-start gap-1.5 overflow-y-auto pr-1",
         )}
       >
         {node.options.map((option) => {
@@ -78,8 +88,8 @@ export function QuestionCard({
               }}
               aria-pressed={isSelected}
               className={cn(
-                "group w-full rounded-xl border px-4 text-left transition-all duration-200",
-                variant === "board" ? "py-2.5" : "py-4",
+                "group w-full border text-left transition-all duration-200",
+                variant === "board" ? "rounded-lg px-3 py-2" : "rounded-xl px-4 py-4",
                 "hover:border-primary/40 hover:bg-secondary hover:shadow-soft",
                 "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                 isSelected
@@ -104,7 +114,7 @@ export function QuestionCard({
                   <span
                     className={cn(
                       "block font-medium",
-                      variant === "board" ? "text-sm" : "text-[15px]",
+                      variant === "board" ? "text-[13px]" : "text-[15px]",
                     )}
                   >
                     {option.label}
@@ -113,7 +123,7 @@ export function QuestionCard({
                     <span
                       className={cn(
                         "mt-1 block text-muted-foreground",
-                        variant === "board" ? "text-xs" : "text-sm",
+                        variant === "board" ? "text-[11px] leading-snug" : "text-sm",
                       )}
                     >
                       {option.description}

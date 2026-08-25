@@ -12,8 +12,7 @@ import {
   DiscoveryModal,
   type Discovery,
 } from "@/components/journey/DiscoveryLayer";
-import { buildStates } from "@/components/journey/TerritoryProgress";
-import { NODE_BY_CODE, TERRITORY_BY_CODE, type TerritoryCode } from "@/journey/nodes";
+import { NODE_BY_CODE, TERRITORY_BY_CODE } from "@/journey/nodes";
 import { SERVICE_BY_CODE } from "@/journey/services";
 import { answerQuestionFn, getJourneyStateFn, trackEventFn } from "@/lib/journey.functions";
 
@@ -112,19 +111,6 @@ function JourneyPage() {
   const node = nodeCode ? NODE_BY_CODE[nodeCode] : null;
   const territory = node ? TERRITORY_BY_CODE[node.territory] : null;
 
-  const states = useMemo(
-    () =>
-      buildStates(
-        new Set(
-          (current?.path ?? [])
-            .map((c) => NODE_BY_CODE[c]?.territory)
-            .filter((t): t is TerritoryCode => Boolean(t)),
-        ),
-        (node?.territory ?? null) as TerritoryCode | null,
-      ),
-    [current?.path, node?.territory],
-  );
-
   const answeredIndex = current?.path.indexOf(nodeCode ?? "") ?? -1;
   const previousNode = answeredIndex > 0 ? (current?.path[answeredIndex - 1] ?? null) : null;
   const selected = current?.answers.find((a) => a.nodeCode === nodeCode)?.optionCode ?? null;
@@ -174,20 +160,7 @@ function JourneyPage() {
       </header>
 
       <div className="min-h-0 flex-1">
-        <JourneyBoard
-          states={states}
-          currentNodeCode={nodeCode}
-          answeredNodeCodes={answeredNodeCodes}
-          progress={progress}
-          territoryIntro={territory?.intro}
-        >
-          <aside className="hidden">
-            <p className="mb-3 hidden text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase md:block">
-              Territórios
-            </p>
-            <p className="mt-4 hidden text-sm text-muted-foreground md:block">{territory?.intro}</p>
-          </aside>
-
+        <JourneyBoard currentNodeCode={nodeCode} answeredNodeCodes={answeredNodeCodes}>
           <div className="flex h-full min-h-0 flex-col">
             <div className="min-h-0 flex-1">
               <QuestionCard
