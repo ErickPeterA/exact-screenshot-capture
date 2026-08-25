@@ -188,17 +188,19 @@ function JourneyPage() {
             <p className="mt-4 hidden text-sm text-muted-foreground md:block">{territory?.intro}</p>
           </aside>
 
-          <div className="flex h-full flex-col justify-center">
-            <QuestionCard
-              node={node}
-              territoryName={territory?.name ?? ""}
-              selected={selected}
-              saving={mutation.isPending}
-              variant="board"
-              onSelect={(optionCode) => mutation.mutate({ nodeCode: node.code, optionCode })}
-            />
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="min-h-0 flex-1">
+              <QuestionCard
+                node={node}
+                territoryName={territory?.name ?? ""}
+                selected={selected}
+                saving={mutation.isPending}
+                variant="board"
+                onSelect={(optionCode) => mutation.mutate({ nodeCode: node.code, optionCode })}
+              />
+            </div>
 
-            <div className="mt-5 flex items-center justify-between">
+            <div className="mt-3 flex shrink-0 items-center justify-between">
               <Button
                 variant="ghost"
                 size="sm"

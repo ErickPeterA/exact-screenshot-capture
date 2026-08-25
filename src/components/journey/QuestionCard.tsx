@@ -39,7 +39,7 @@ export function QuestionCard({
               "surface-card border-l-4 p-6 md:p-9",
               TERRITORY_ACCENT[node.territory] ?? "border-l-navy",
             )
-          : "p-0",
+          : "flex h-full min-h-0 flex-col p-0",
       )}
       aria-labelledby={`q-${node.code}`}
     >
@@ -59,7 +59,12 @@ export function QuestionCard({
         Responda de acordo com a realidade atual — não existem respostas certas ou erradas.
       </p>
 
-      <div className={cn("mt-6 grid gap-3", variant === "board" && "mt-4 gap-2")}>
+      <div
+        className={cn(
+          "mt-6 grid gap-3",
+          variant === "board" && "mt-4 min-h-0 flex-1 content-start gap-2 overflow-y-auto pr-1",
+        )}
+      >
         {node.options.map((option) => {
           const isSelected = (pending ?? selected) === option.code;
           return (
@@ -95,7 +100,7 @@ export function QuestionCard({
                 >
                   ✓
                 </span>
-                <span>
+                <span className="min-w-0">
                   <span
                     className={cn(
                       "block font-medium",

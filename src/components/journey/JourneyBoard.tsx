@@ -98,7 +98,7 @@ export function JourneyBoard({
   children: ReactNode;
 }) {
   return (
-    <section className="mx-auto flex h-full max-w-7xl flex-col px-3 py-3 sm:px-4">
+    <section className="mx-auto flex h-full w-full max-w-7xl flex-col px-3 py-3 sm:px-4">
       <div className="mb-2 flex shrink-0 items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
@@ -122,27 +122,52 @@ export function JourneyBoard({
         </div>
       </div>
 
-      <MobileBoardTrack
-        tiles={TILES}
-        currentNodeCode={currentNodeCode}
-        answeredNodeCodes={answeredNodeCodes}
-      />
-
-      <div className="relative min-h-0 flex-1 rounded-2xl border border-border bg-[linear-gradient(135deg,var(--surface)_0%,var(--surface-2)_100%)] p-2 shadow-card md:grid md:grid-cols-9 md:grid-rows-9 md:gap-1.5">
-        {TILES.map((tile, index) => (
-          <BoardSpace
-            key={tile.code}
-            tile={tile}
-            index={index}
-            status={statusFor(tile.code, currentNodeCode, answeredNodeCodes)}
+      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-3 md:grid-cols-[minmax(0,1fr)_minmax(360px,430px)] md:grid-rows-1">
+        <div className="flex min-h-0 flex-col">
+          <MobileBoardTrack
+            tiles={TILES}
+            currentNodeCode={currentNodeCode}
+            answeredNodeCodes={answeredNodeCodes}
           />
-        ))}
 
-        <div
-          className="min-h-0 rounded-xl border border-border bg-surface p-3 shadow-lift sm:p-4"
-          style={{ gridColumn: "3 / span 5", gridRow: "3 / span 5" }}
-        >
-          <div className="mb-3 grid grid-cols-3 gap-1.5">
+          <div className="hidden min-h-0 flex-1 items-center justify-center md:flex">
+            <div
+              className="aspect-square rounded-2xl border border-border bg-[linear-gradient(135deg,var(--surface)_0%,var(--surface-2)_100%)] p-2 shadow-card"
+              style={{
+                width: "min(100%, calc(100svh - 7.5rem))",
+                height: "min(100%, calc(100svh - 7.5rem))",
+              }}
+            >
+              <div className="grid size-full grid-cols-9 grid-rows-9 gap-1.5">
+                {TILES.map((tile, index) => (
+                  <BoardSpace
+                    key={tile.code}
+                    tile={tile}
+                    index={index}
+                    status={statusFor(tile.code, currentNodeCode, answeredNodeCodes)}
+                  />
+                ))}
+
+                <div
+                  className="grid place-items-center rounded-xl border border-dashed border-border bg-surface/75 p-4 text-center"
+                  style={{ gridColumn: "3 / span 5", gridRow: "3 / span 5" }}
+                >
+                  <div>
+                    <p className="font-display text-lg font-semibold text-foreground">
+                      Jornada do Empreendedor
+                    </p>
+                    <p className="mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground">
+                      Acompanhe sua posicao no tabuleiro enquanto responde no painel ao lado.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside className="flex min-h-0 flex-col rounded-2xl border border-border bg-surface p-3 shadow-lift sm:p-4">
+          <div className="mb-3 grid shrink-0 grid-cols-3 gap-1.5">
             {states.map((state) => {
               const style = TERRITORY_STYLE[state.code];
               return (
@@ -168,8 +193,8 @@ export function JourneyBoard({
               );
             })}
           </div>
-          {children}
-        </div>
+          <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+        </aside>
       </div>
     </section>
   );
