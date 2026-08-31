@@ -1,3 +1,5 @@
+import { Backpack, Lightbulb } from "lucide-react";
+
 import {
   Dialog,
   DialogContent,
@@ -17,7 +19,9 @@ import { Button } from "@/components/ui/button";
 
 export interface Discovery {
   serviceCode: string;
+  serviceName?: string;
   text: string;
+  interpretation?: string;
   territory: string;
 }
 
@@ -33,10 +37,26 @@ export function DiscoveryModal({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <span aria-hidden>💡</span> Uma descoberta no caminho
+            <span
+              aria-hidden
+              className="grid size-8 place-items-center rounded-md bg-secondary text-primary"
+            >
+              <Lightbulb className="size-4" />
+            </span>
+            Uma descoberta no caminho
           </DialogTitle>
-          <DialogDescription className="pt-2 text-[15px] leading-relaxed text-foreground">
-            {discovery?.text}
+          <DialogDescription className="space-y-3 pt-2 text-[15px] leading-relaxed text-foreground">
+            {discovery?.serviceName && (
+              <span className="block font-display font-semibold">{discovery.serviceName}</span>
+            )}
+            <span className="block">{discovery?.text}</span>
+            {discovery?.interpretation && (
+              <span className="block text-muted-foreground">{discovery.interpretation}</span>
+            )}
+            <span className="block text-sm text-muted-foreground">
+              Se esta descoberta se confirmar como prioridade ou oportunidade para o negÃ³cio, ela
+              tambÃ©m aparecerÃ¡ no relatÃ³rio final.
+            </span>
           </DialogDescription>
         </DialogHeader>
         <Button onClick={onClose} className="mt-2 w-full">
@@ -52,7 +72,7 @@ export function DiscoveryBackpack({ discoveries }: { discoveries: Discovery[] })
     <Sheet>
       <SheetTrigger asChild>
         <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
-          <span aria-hidden>🎒</span>
+          <Backpack className="size-4" />
           Minhas descobertas
           <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-foreground">
             {discoveries.length}
@@ -74,10 +94,16 @@ export function DiscoveryBackpack({ discoveries }: { discoveries: Discovery[] })
           )}
           {discoveries.map((d, i) => (
             <div key={`${d.serviceCode}-${i}`} className="surface-card p-4">
-              <p className="text-xs tracking-wide text-muted-foreground uppercase">
-                {d.territory}
-              </p>
+              <p className="text-xs tracking-wide text-muted-foreground uppercase">{d.territory}</p>
+              {d.serviceName && (
+                <p className="mt-1.5 font-display text-sm font-semibold">{d.serviceName}</p>
+              )}
               <p className="mt-1.5 text-sm leading-relaxed">{d.text}</p>
+              {d.interpretation && (
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {d.interpretation}
+                </p>
+              )}
             </div>
           ))}
         </div>

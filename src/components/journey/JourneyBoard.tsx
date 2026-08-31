@@ -1,4 +1,4 @@
-import { Check, Flag, LockKeyhole, MapPin, Trophy } from "lucide-react";
+import { Check, Flag, MapPin, Trophy } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 
 import { NODES, TERRITORY_BY_CODE, type TerritoryCode } from "@/journey/nodes";
@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const DESKTOP_COLUMNS = 8;
 const MOBILE_COLUMNS = 4;
+export const BOARD_ENTRY_CODE = "__ENTRY__";
 
 const TERRITORY_STYLE: Record<
   TerritoryCode,
@@ -13,50 +14,50 @@ const TERRITORY_STYLE: Record<
     tile: string;
     active: string;
     marker: string;
-    path: string;
+    image: string;
   }
 > = {
   START: {
-    tile: "border-muted-foreground/25 bg-muted/80",
+    tile: "border-muted-foreground/30 bg-muted/80",
     active: "ring-muted-foreground/35",
     marker: "bg-muted-foreground",
-    path: "from-muted to-muted-foreground/25",
+    image: "/partida.png",
   },
   STRATEGY: {
     tile: "border-strategy/30 bg-strategy-soft",
     active: "ring-strategy/45",
     marker: "bg-strategy",
-    path: "from-strategy-soft to-strategy/20",
+    image: "/estrategia.jpeg",
   },
   PROCESS: {
     tile: "border-process/40 bg-process-soft",
     active: "ring-process/45",
     marker: "bg-process",
-    path: "from-process-soft to-process/20",
+    image: "/processos.jpeg",
   },
   PEOPLE: {
     tile: "border-people/30 bg-people-soft",
     active: "ring-people/45",
     marker: "bg-people",
-    path: "from-people-soft to-people/20",
+    image: "/pessoas.jpeg",
   },
   FINANCE: {
     tile: "border-finance/35 bg-finance-soft",
     active: "ring-finance/45",
     marker: "bg-finance",
-    path: "from-finance-soft to-finance/20",
+    image: "/financeiro.jpeg",
   },
   GOVERNANCE: {
     tile: "border-strategy/30 bg-strategy-soft",
     active: "ring-strategy/45",
     marker: "bg-strategy",
-    path: "from-strategy-soft to-strategy/20",
+    image: "/estrategia.jpeg",
   },
   RESULT: {
     tile: "border-navy/30 bg-secondary",
     active: "ring-navy/45",
     marker: "bg-navy",
-    path: "from-secondary to-navy/20",
+    image: "/partida.png",
   },
 };
 
@@ -90,14 +91,20 @@ export function JourneyBoard({
   actorNodeCode,
   answeredNodeCodes,
   modalOpen = true,
+  actorVisible = true,
   actorWalking = false,
+  actorTravelMs = 90,
+  startControl,
   children,
 }: {
   currentNodeCode: string | null;
   actorNodeCode?: string | null;
   answeredNodeCodes: Set<string>;
   modalOpen?: boolean;
+  actorVisible?: boolean;
   actorWalking?: boolean;
+  actorTravelMs?: number;
+  startControl?: ReactNode;
   children: ReactNode;
 }) {
   const actorCode = actorNodeCode ?? currentNodeCode ?? "RESULT";
@@ -128,6 +135,7 @@ export function JourneyBoard({
             "--modal-desktop-origin-y": `${desktopModalOrigin.y}%`,
             "--modal-mobile-origin-x": `${mobileModalOrigin.x}%`,
             "--modal-mobile-origin-y": `${mobileModalOrigin.y}%`,
+            "--actor-travel-ms": `${actorTravelMs}ms`,
           } as CSSProperties
         }
       >
@@ -164,7 +172,8 @@ export function JourneyBoard({
           })}
         </ol>
 
-        <PixelEntrepreneur walking={actorWalking} />
+        <PixelEntrepreneur visible={actorVisible} walking={actorWalking} />
+        {startControl && <div className="absolute bottom-4 left-4 z-40">{startControl}</div>}
 
         <div
           className={cn(
@@ -256,15 +265,13 @@ function BoardSpace({
   return (
     <li
       className={cn(
-        "journey-snake-tile relative flex min-h-0 flex-col justify-between overflow-hidden rounded-md border p-1.5 shadow-soft transition-all duration-200 sm:p-2",
-        "before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-gradient-to-r",
-        territoryStyle.path,
+        "journey-snake-tile relative grid min-h-0 place-items-center overflow-hidden rounded-md border shadow-soft transition-all duration-200",
         territoryStyle.tile,
         status === "current" &&
           "z-20 scale-[1.04] shadow-lift ring-2 ring-offset-2 ring-offset-background",
         status === "current" && territoryStyle.active,
-        status === "done" && "opacity-95",
-        status === "pending" && "opacity-55 grayscale-[0.1]",
+        status === "done" && "border-finance/60",
+        status === "pending" && "border-border/75",
         startsTerritory && "outline outline-1 outline-offset-[-3px] outline-white/70",
         endsTerritory &&
           "after:absolute after:right-1 after:bottom-1 after:size-1.5 after:bg-foreground/20",
@@ -272,24 +279,23 @@ function BoardSpace({
       style={style}
       aria-current={status === "current" ? "step" : undefined}
     >
-      <div className="relative z-10 flex items-start justify-between gap-1">
-        <span className="font-display text-[10px] leading-none font-bold text-foreground sm:text-xs">
-          {index + 1}
-        </span>
+      <img
+        src={territoryStyle.image}
+        alt=""
+        className="size-full object-cover"
+        draggable={false}
+        loading="eager"
+      />
+      <span className="sr-only">
+        {index + 1}. {tile.title} - {tile.shortTitle}
+      </span>
+      <div className="absolute right-1 top-1 z-10">
         <TileStatus
           status={status}
           marker={territoryStyle.marker}
           checkpoint={startsTerritory}
           result={tile.code === "RESULT"}
         />
-      </div>
-      <div className="relative z-10 min-w-0">
-        <p className="hidden truncate text-[10px] font-semibold text-muted-foreground md:block">
-          {tile.title}
-        </p>
-        <p className="truncate font-display text-[10px] leading-tight font-bold text-foreground sm:text-xs">
-          {tile.shortTitle}
-        </p>
       </div>
     </li>
   );
@@ -334,18 +340,15 @@ function TileStatus({
       </span>
     );
   }
-  return (
-    <span className="grid size-5 place-items-center rounded-full border border-border bg-surface text-muted-foreground">
-      <LockKeyhole className="size-3" />
-    </span>
-  );
+  return <span className="block size-2 rounded-full bg-surface/80 shadow-soft" />;
 }
 
-function PixelEntrepreneur({ walking }: { walking: boolean }) {
+function PixelEntrepreneur({ visible, walking }: { visible: boolean; walking: boolean }) {
   return (
     <div
       className={cn(
         "pixel-entrepreneur pointer-events-none absolute z-20",
+        visible ? "opacity-100" : "opacity-0",
         walking ? "is-walking" : "is-idle",
       )}
       aria-hidden
@@ -380,6 +383,13 @@ function snakePosition(index: number, columns: number) {
 }
 
 function centerForCode(code: string, columns: number, rows: number) {
+  if (code === BOARD_ENTRY_CODE) {
+    return {
+      x: 7,
+      y: 93,
+    };
+  }
+
   const index = Math.max(
     0,
     TILES.findIndex((tile) => tile.code === code),

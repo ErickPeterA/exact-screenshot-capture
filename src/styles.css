@@ -270,6 +270,17 @@
     0 8px 18px -14px oklch(0.27 0.072 262 / 0.38);
 }
 
+.journey-snake-tile::before {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(180deg, oklch(1 0 0 / 0.2), transparent 44%),
+    linear-gradient(0deg, oklch(0.17 0.04 262 / 0.18), transparent 42%);
+}
+
 .journey-question-modal {
   transform-origin: var(--modal-mobile-origin-x) var(--modal-mobile-origin-y);
 }
@@ -290,8 +301,9 @@
   transform: translate(-50%, -78%);
   image-rendering: pixelated;
   transition:
-    left 90ms linear,
-    top 90ms linear;
+    left var(--actor-travel-ms, 90ms) linear,
+    top var(--actor-travel-ms, 90ms) linear,
+    opacity 180ms ease;
 }
 
 .pixel-entrepreneur span {
@@ -436,8 +448,9 @@
     width: 42px;
     height: 54px;
     transition:
-      left 90ms linear,
-      top 90ms linear;
+      left var(--actor-travel-ms, 90ms) linear,
+      top var(--actor-travel-ms, 90ms) linear,
+      opacity 180ms ease;
   }
 }
 
