@@ -159,6 +159,7 @@ export function JourneyBoard({
                 status={status}
                 startsTerritory={startsTerritory}
                 endsTerritory={endsTerritory}
+                image={imageForTile(tile)}
                 style={
                   {
                     "--desktop-column": desktopPosition.column,
@@ -226,20 +227,29 @@ function BoardPath({
         points={points}
         fill="none"
         stroke="currentColor"
-        strokeWidth="48"
+        strokeWidth="58"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-navy/10"
+        className="text-navy/20"
       />
       <polyline
         points={points}
         fill="none"
         stroke="currentColor"
-        strokeWidth="18"
+        strokeWidth="42"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeDasharray="8 18"
-        className="text-surface/80"
+        className="text-surface/75"
+      />
+      <polyline
+        points={points}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="16"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeDasharray="12 18"
+        className="text-primary/45"
       />
     </svg>
   );
@@ -252,6 +262,7 @@ function BoardSpace({
   startsTerritory,
   endsTerritory,
   style,
+  image,
 }: {
   tile: BoardTile;
   index: number;
@@ -259,6 +270,7 @@ function BoardSpace({
   startsTerritory: boolean;
   endsTerritory: boolean;
   style: CSSProperties;
+  image: string;
 }) {
   const territoryStyle = TERRITORY_STYLE[tile.territory];
 
@@ -280,12 +292,18 @@ function BoardSpace({
       aria-current={status === "current" ? "step" : undefined}
     >
       <img
-        src={territoryStyle.image}
+        src={image}
         alt=""
-        className="size-full object-cover"
+        className={cn(
+          "journey-snake-tile-image size-full object-cover transition-opacity duration-200",
+          status === "current" ? "opacity-80" : "opacity-55",
+        )}
         draggable={false}
         loading="eager"
       />
+      <span className="absolute left-1 top-1 z-10 grid min-w-6 place-items-center rounded-sm border border-white/70 bg-surface/85 px-1.5 py-0.5 font-display text-[10px] leading-none font-bold text-foreground shadow-soft sm:text-xs">
+        {index + 1}
+      </span>
       <span className="sr-only">
         {index + 1}. {tile.title} - {tile.shortTitle}
       </span>
@@ -373,6 +391,11 @@ function statusFor(
   if (answeredNodeCodes.has(tileCode)) return "done";
   if (tileCode === "RESULT" && currentNodeCode === null) return "current";
   return "pending";
+}
+
+function imageForTile(tile: BoardTile) {
+  if (tile.code === "START-01") return "/start.jpeg";
+  return TERRITORY_STYLE[tile.territory].image;
 }
 
 function snakePosition(index: number, columns: number) {
