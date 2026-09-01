@@ -1,19 +1,18 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Wordmark } from "@/components/brand/Wordmark";
 import { Button } from "@/components/ui/button";
-import { BOARD_ENTRY_CODE, JourneyBoard } from "@/components/journey/JourneyBoard";
+import { JourneyBoard } from "@/components/journey/JourneyBoard";
 import { QuestionCard } from "@/components/journey/QuestionCard";
 import {
   DiscoveryBackpack,
   DiscoveryModal,
   type Discovery,
 } from "@/components/journey/DiscoveryLayer";
-import { FIRST_NODE, NODE_BY_CODE, NODES, RESULT_NODE, TERRITORY_BY_CODE } from "@/journey/nodes";
+import { NODE_BY_CODE, NODES, RESULT_NODE, TERRITORY_BY_CODE } from "@/journey/nodes";
 import { SERVICE_BY_CODE } from "@/journey/services";
 import { answerQuestionFn, getJourneyStateFn, trackEventFn } from "@/lib/journey.functions";
 
@@ -55,9 +54,6 @@ function JourneyPage() {
   const [focusedNodeCode, setFocusedNodeCode] = useState<string | null>(null);
   const [questionOpen, setQuestionOpen] = useState(true);
   const [actorWalking, setActorWalking] = useState(false);
-  const [actorVisible, setActorVisible] = useState(false);
-  const [actorTravelMs, setActorTravelMs] = useState(90);
-  const [journeyStarted, setJourneyStarted] = useState(false);
   const shownTerritories = useRef<Set<string>>(new Set());
   const discoveryRef = useRef<Discovery | null>(null);
   const pendingResult = useRef(false);
@@ -91,7 +87,6 @@ function JourneyPage() {
       const toIndex = BOARD_NODE_CODES.indexOf(targetCode);
 
       if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
-        setActorTravelMs(90);
         setVisualNodeCode(targetCode);
         setActorWalking(false);
         scheduleMovementTimer(onArrive, 180);
@@ -106,7 +101,6 @@ function JourneyPage() {
       const totalDuration = Math.min(900, Math.max(500, 450 + path.length * 55));
       const stepDuration = totalDuration / path.length;
 
-      setActorTravelMs(90);
       setActorWalking(true);
       path.forEach((boardIndex, index) => {
         scheduleMovementTimer(
@@ -148,9 +142,7 @@ function JourneyPage() {
         if (service) {
           const item: Discovery = {
             serviceCode: service.code,
-            serviceName: service.name,
             text: service.discoveryText,
-            interpretation: service.interpretation,
             territory: TERRITORY_BY_CODE[node.territory]?.name ?? "",
           };
           setBackpack((b) => [...b, item]);
@@ -192,43 +184,11 @@ function JourneyPage() {
   const nodeCode = override ?? current?.currentNode ?? null;
   const node = nodeCode ? NODE_BY_CODE[nodeCode] : null;
   const territory = node ? TERRITORY_BY_CODE[node.territory] : null;
-  const waitingToStart =
-    Boolean(current) &&
-    current?.answers.length === 0 &&
-    current?.currentNode === FIRST_NODE &&
-    !journeyStarted &&
-    !override;
-
-  const startJourneyOnBoard = useCallback(() => {
-    if (!current?.currentNode) return;
-
-    clearMovementTimers();
-    setJourneyStarted(true);
-    setQuestionOpen(false);
-    setFocusedNodeCode(current.currentNode);
-    setActorTravelMs(680);
-    setVisualNodeCode(BOARD_ENTRY_CODE);
-    setActorVisible(true);
-    setActorWalking(true);
-    scheduleMovementTimer(() => setVisualNodeCode(current.currentNode), 40);
-    scheduleMovementTimer(() => setActorWalking(false), 720);
-    scheduleMovementTimer(() => {
-      setActorTravelMs(90);
-      setFocusedNodeCode(null);
-      setQuestionOpen(true);
-    }, 860);
-  }, [clearMovementTimers, current?.currentNode, scheduleMovementTimer]);
 
   useEffect(() => {
-    if (waitingToStart) {
-      setActorVisible(false);
-      setVisualNodeCode(BOARD_ENTRY_CODE);
-      return;
-    }
     if (!nodeCode || actorWalking || !questionOpen) return;
-    setActorVisible(true);
     setVisualNodeCode(nodeCode);
-  }, [actorWalking, nodeCode, questionOpen, waitingToStart]);
+  }, [actorWalking, nodeCode, questionOpen]);
 
   const answeredIndex = current?.path.indexOf(nodeCode ?? "") ?? -1;
   const previousNode = answeredIndex > 0 ? (current?.path[answeredIndex - 1] ?? null) : null;
@@ -280,21 +240,11 @@ function JourneyPage() {
 
       <div className="min-h-0 flex-1">
         <JourneyBoard
-          currentNodeCode={waitingToStart ? BOARD_ENTRY_CODE : (focusedNodeCode ?? nodeCode)}
+          currentNodeCode={focusedNodeCode ?? nodeCode}
           actorNodeCode={visualNodeCode ?? nodeCode}
           answeredNodeCodes={answeredNodeCodes}
-          modalOpen={questionOpen && !waitingToStart}
-          actorVisible={actorVisible}
+          modalOpen={questionOpen}
           actorWalking={actorWalking}
-          actorTravelMs={actorTravelMs}
-          startControl={
-            waitingToStart ? (
-              <Button size="lg" className="gap-2 shadow-lift" onClick={startJourneyOnBoard}>
-                <Play className="size-4" />
-                Iniciar jornada
-              </Button>
-            ) : null
-          }
         >
           <div className="flex h-full min-h-0 flex-col">
             <div className="min-h-0 flex-1">
@@ -320,7 +270,6 @@ function JourneyPage() {
                   clearMovementTimers();
                   setFocusedNodeCode(null);
                   setActorWalking(false);
-                  setActorVisible(true);
                   setVisualNodeCode(previousNode);
                   setQuestionOpen(true);
                   setOverride(previousNode);
@@ -336,7 +285,6 @@ function JourneyPage() {
                     clearMovementTimers();
                     setFocusedNodeCode(null);
                     setActorWalking(false);
-                    setActorVisible(true);
                     setVisualNodeCode(current?.currentNode ?? null);
                     setQuestionOpen(true);
                     setOverride(null);

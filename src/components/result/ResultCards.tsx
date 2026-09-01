@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { DimensionScore, Recommendation } from "@/journey/engine";
-import { SERVICE_BY_CODE, type DimensionCode } from "@/journey/services";
+import type { DimensionCode } from "@/journey/services";
 
 const DIM_STYLE: Record<DimensionCode, { bar: string; soft: string; label: string }> = {
   STRATEGY: { bar: "bg-strategy", soft: "bg-strategy-soft", label: "text-strategy" },
@@ -49,7 +49,6 @@ export function PriorityCard({
   index: number;
 }) {
   const style = DIM_STYLE[recommendation.dimension];
-  const discoveryText = SERVICE_BY_CODE[recommendation.serviceCode]?.discoveryText;
 
   return (
     <article className="surface-card p-6">
@@ -81,22 +80,12 @@ export function PriorityCard({
       <p className={cn("mt-1.5 font-display font-semibold", style.label)}>
         {recommendation.serviceName}
       </p>
-
-      {discoveryText && (
-        <>
-          <p className="mt-5 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-            Descoberta do caminho
-          </p>
-          <p className="mt-1.5 text-sm leading-relaxed">{discoveryText}</p>
-        </>
-      )}
     </article>
   );
 }
 
 export function OpportunityCard({ recommendation }: { recommendation: Recommendation }) {
   const style = DIM_STYLE[recommendation.dimension];
-  const discoveryText = SERVICE_BY_CODE[recommendation.serviceCode]?.discoveryText;
 
   return (
     <article className="rounded-xl border border-border bg-surface-2 p-5">
@@ -109,9 +98,6 @@ export function OpportunityCard({ recommendation }: { recommendation: Recommenda
       <h4 className="mt-2 text-[15px] font-semibold">{recommendation.need}</h4>
       <p className="mt-1.5 text-sm text-muted-foreground">{recommendation.interpretation}</p>
       <p className="mt-3 text-sm font-medium">{recommendation.serviceName}</p>
-      {discoveryText && (
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{discoveryText}</p>
-      )}
     </article>
   );
 }
