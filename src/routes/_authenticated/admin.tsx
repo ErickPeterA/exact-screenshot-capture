@@ -22,7 +22,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { supabase } from "@/integrations/supabase/client";
+import { logoutFn } from "@/lib/auth.functions";
 import {
   adminAnalyticsFn,
   adminJourneyDetailFn,
@@ -58,6 +58,7 @@ function AdminPage() {
   const journeysFn = useServerFn(adminJourneysFn);
   const analyticsFn = useServerFn(adminAnalyticsFn);
   const detailFn = useServerFn(adminJourneyDetailFn);
+  const logout = useServerFn(logoutFn);
 
   const [search, setSearch] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -92,7 +93,7 @@ function AdminPage() {
             variant="ghost"
             className="mt-4"
             onClick={async () => {
-              await supabase.auth.signOut();
+              await logout();
               navigate({ to: "/auth" });
             }}
           >
@@ -121,7 +122,7 @@ function AdminPage() {
             variant="ghost"
             size="sm"
             onClick={async () => {
-              await supabase.auth.signOut();
+              await logout();
               navigate({ to: "/auth" });
             }}
           >
