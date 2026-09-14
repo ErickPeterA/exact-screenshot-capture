@@ -9,20 +9,11 @@ npm install
 npm run dev
 ```
 
-Configure `DATABASE_URL` from `.env.example` before using the journey or the admin area.
+Configure `DATABASE_URL` from `.env.example` before using the journey.
 
-## Banco e primeiro administrador
+## Banco
 
-Execute [migrations/20260911000000_initial_postgres.sql](migrations/20260911000000_initial_postgres.sql) once on PostgreSQL 17. Generate a bcrypt hash locally, then insert the user and its role:
-
-```sh
-node -e "import('bcryptjs').then(({hash}) => hash('uma-senha-forte', 12).then(console.log))"
-```
-
-```sql
-INSERT INTO app_users (email, password_hash) VALUES ('admin@example.com', '<BCRYPT_HASH>') RETURNING id;
-INSERT INTO user_roles (user_id, role) VALUES ('<ID_RETORNADO>', 'admin');
-```
+Execute [migrations/20260911000000_initial_postgres.sql](migrations/20260911000000_initial_postgres.sql) once on PostgreSQL 17.
 
 ## Produção
 

@@ -1,13 +1,10 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import { Wordmark } from "@/components/brand/Wordmark";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   MaturityCard,
   OpportunityCard,
@@ -18,7 +15,6 @@ import { TEXTS } from "@/journey/config";
 import {
   getResultFn,
   restartJourneyFn,
-  submitLeadFn,
   trackEventFn,
 } from "@/lib/journey.functions";
 
@@ -190,8 +186,6 @@ function ResultPage() {
           </section>
         )}
 
-        <LeadCapture sessionId={sessionId} alreadySent={data.hasLead} />
-
         <div className="mt-10 flex flex-wrap gap-3">
           <Button
             variant="ghost"
@@ -206,119 +200,6 @@ function ResultPage() {
         </div>
       </div>
     </main>
-  );
-}
-
-function LeadCapture({
-  sessionId,
-  alreadySent,
-}: {
-  sessionId: string;
-  alreadySent: boolean;
-}) {
-  const submit = useServerFn(submitLeadFn);
-  const track = useServerFn(trackEventFn);
-  const [email, setEmail] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
-  const [wantsContact, setWantsContact] = useState(true);
-  const [consent, setConsent] = useState(false);
-  const [done, setDone] = useState(alreadySent);
-  const [error, setError] = useState<string | null>(null);
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      submit({
-        data: {
-          sessionId,
-          email: email.trim(),
-          whatsapp: whatsapp.trim() || undefined,
-          wantsContact,
-          consent: true as const,
-        },
-      }),
-    onSuccess: () => setDone(true),
-    onError: () => setError("Não conseguimos registrar agora. Tente novamente."),
-  });
-
-  if (done) {
-    return (
-      <section className="surface-card mt-14 p-7 text-center md:p-10">
-        <h2 className="font-display text-xl font-semibold">Recebemos seu contato</h2>
-        <p className="mt-2 text-muted-foreground">
-          Um especialista da VG vai retomar este mapa com você em breve.
-        </p>
-      </section>
-    );
-  }
-
-  const valid = /.+@.+\..+/.test(email) && consent;
-
-  return (
-    <section className="surface-card mt-14 p-7 md:p-10" aria-labelledby="cta">
-      <h2 id="cta" className="font-display text-xl font-semibold text-balance">
-        {TEXTS.ctaTitle}
-      </h2>
-      <p className="mt-2 text-sm text-muted-foreground">{TEXTS.ctaIntent}</p>
-
-      <form
-        className="mt-6 grid gap-5 md:max-w-xl"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setError(null);
-          if (!valid) return;
-          void track({ data: { sessionId, eventName: "cta_clicked" } });
-          mutation.mutate();
-        }}
-      >
-        <div className="grid gap-2">
-          <Label htmlFor="email">E-mail</Label>
-          <Input
-            id="email"
-            type="email"
-            value={email}
-            autoComplete="email"
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="whatsapp">WhatsApp (opcional)</Label>
-          <Input
-            id="whatsapp"
-            value={whatsapp}
-            inputMode="tel"
-            onChange={(e) => setWhatsapp(e.target.value)}
-          />
-        </div>
-
-        <label className="flex items-start gap-3 text-sm">
-          <Checkbox
-            checked={wantsContact}
-            onCheckedChange={(v) => setWantsContact(v === true)}
-          />
-          <span>Quero ser contatado por um especialista da VG.</span>
-        </label>
-
-        <label className="flex items-start gap-3 text-sm text-muted-foreground">
-          <Checkbox
-            checked={consent}
-            onCheckedChange={(v) => setConsent(v === true)}
-            aria-describedby="consent-text"
-          />
-          <span id="consent-text">{TEXTS.consentText}</span>
-        </label>
-
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-
-        <Button type="submit" size="lg" disabled={!valid || mutation.isPending}>
-          {mutation.isPending ? "Enviando..." : TEXTS.ctaButton}
-        </Button>
-      </form>
-    </section>
   );
 }
 

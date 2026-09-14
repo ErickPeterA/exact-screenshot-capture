@@ -65,12 +65,6 @@ export const TEXTS = {
   resultTitle: "Sua Jornada está concluída.",
   resultSubtitle:
     "Com base nas suas respostas, construímos um mapa do momento atual da sua empresa.",
-  ctaTitle: "Quer aprofundar este mapa com um especialista da VG?",
-  ctaIntent: "Quero conversar com a VG sobre este diagnóstico.",
-  ctaButton: "Quero conversar com um especialista",
-  // PLACEHOLDER — não é a versão jurídica definitiva. Configurável.
-  consentText:
-    "Autorizo a VG Gestão de Resultados a tratar os dados informados para contato comercial sobre este diagnóstico, conforme a política de privacidade da VG. [Texto provisório — substituir pela versão jurídica oficial.]",
   diagnosticFirstStepTitle: "Primeiro passo recomendado",
   diagnosticFirstStep: "Aprofundar o cenário da empresa.",
   diagnosticAreasTitle: "Principais áreas que merecem investigação",

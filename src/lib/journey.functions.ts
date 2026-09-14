@@ -47,24 +47,6 @@ export const getResultFn = createServerFn({ method: "POST" })
     return buildResult(data.sessionId);
   });
 
-export const submitLeadFn = createServerFn({ method: "POST" })
-  .inputValidator((data) =>
-    z
-      .object({
-        sessionId: uuid,
-        email: z.string().trim().email().max(180),
-        whatsapp: z.string().trim().max(40).optional(),
-        wantsContact: z.boolean(),
-        consent: z.literal(true),
-      })
-      .parse(data),
-  )
-  .handler(async ({ data }) => {
-    const { saveLead } = await import("./journey.server");
-    await saveLead({ ...data, whatsapp: data.whatsapp ?? "" });
-    return { ok: true };
-  });
-
 export const trackEventFn = createServerFn({ method: "POST" })
   .inputValidator((data) =>
     z
@@ -78,8 +60,6 @@ export const trackEventFn = createServerFn({ method: "POST" })
           "territory_completed",
           "journey_abandoned",
           "result_viewed",
-          "cta_clicked",
-          "lead_submitted",
           "journey_restarted",
         ]),
         nodeCode: z.string().max(32).nullable().optional(),

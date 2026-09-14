@@ -1,33 +1,6 @@
 -- PostgreSQL 17 schema for Jornada do Empreendedor. Execute once on the self-hosted database.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-CREATE TABLE app_users (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  email text NOT NULL,
-  password_hash text NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE UNIQUE INDEX app_users_email_lower_key ON app_users (lower(email));
-
-CREATE TABLE user_roles (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
-  role text NOT NULL CHECK (role IN ('admin', 'user')),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (user_id, role)
-);
-
-CREATE TABLE app_sessions (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
-  token_hash text NOT NULL UNIQUE,
-  expires_at timestamptz NOT NULL,
-  revoked_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX app_sessions_active_user_idx ON app_sessions (user_id, expires_at) WHERE revoked_at IS NULL;
-
 CREATE TABLE journey_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), journey_version text NOT NULL DEFAULT 'v1',
   name text NOT NULL, company text NOT NULL, status text NOT NULL DEFAULT 'started', current_node text,
@@ -47,11 +20,6 @@ CREATE TABLE result_snapshots (
   structured_points jsonb NOT NULL DEFAULT '[]'::jsonb, extra jsonb NOT NULL DEFAULT '{}'::jsonb,
   uncertainty_rate numeric NOT NULL DEFAULT 0, journey_version text NOT NULL DEFAULT 'v1', engine_version text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE TABLE leads (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), session_id uuid NOT NULL UNIQUE REFERENCES journey_sessions(id) ON DELETE CASCADE,
-  email text NOT NULL, whatsapp text, wants_contact boolean NOT NULL DEFAULT true, consent boolean NOT NULL DEFAULT false,
-  submitted_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE analytics_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), session_id uuid REFERENCES journey_sessions(id) ON DELETE CASCADE,
