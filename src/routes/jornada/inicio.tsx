@@ -42,7 +42,14 @@ function Inicio() {
     onSuccess: ({ sessionId }) => {
       navigate({ to: "/jornada/$sessionId", params: { sessionId } });
     },
-    onError: () => setError("Não foi possível iniciar agora. Tente novamente."),
+    onError: (reason) => {
+      const message = reason instanceof Error ? reason.message : "";
+      setError(
+        message.includes("DATABASE_URL")
+          ? "A jornada está temporariamente indisponível. Verifique a conexão com o banco de dados."
+          : "Não foi possível conectar ao banco de dados. A jornada ficará disponível assim que a conexão for configurada.",
+      );
+    },
   });
 
   const valid = name.trim().length >= 2 && company.trim().length >= 2;

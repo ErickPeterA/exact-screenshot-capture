@@ -12,7 +12,7 @@ import {
   DiscoveryModal,
   type Discovery,
 } from "@/components/journey/DiscoveryLayer";
-import { NODE_BY_CODE, NODES, RESULT_NODE, TERRITORY_BY_CODE } from "@/journey/nodes";
+import { NODE_BY_CODE, ORDERED_NODES, RESULT_NODE, TERRITORY_BY_CODE } from "@/journey/nodes";
 import { SERVICE_BY_CODE } from "@/journey/services";
 import { answerQuestionFn, getJourneyStateFn, trackEventFn } from "@/lib/journey.functions";
 
@@ -38,7 +38,7 @@ export const Route = createFileRoute("/jornada/$sessionId")({
 });
 
 type State = Awaited<ReturnType<typeof getJourneyStateFn>>;
-const BOARD_NODE_CODES = [...NODES.map((node) => node.code), RESULT_NODE];
+const BOARD_NODE_CODES = [...ORDERED_NODES.map((node) => node.code), RESULT_NODE];
 
 function JourneyPage() {
   const { sessionId } = Route.useParams();

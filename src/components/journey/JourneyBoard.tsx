@@ -1,7 +1,7 @@
 import { Check, Flag, LockKeyhole, MapPin, Trophy } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 
-import { NODES, TERRITORY_BY_CODE, type TerritoryCode } from "@/journey/nodes";
+import { ORDERED_NODES, TERRITORY_BY_CODE, type TerritoryCode } from "@/journey/nodes";
 import { cn } from "@/lib/utils";
 
 const DESKTOP_COLUMNS = 8;
@@ -64,21 +64,18 @@ type BoardTile = {
   code: string;
   territory: TerritoryCode;
   title: string;
-  shortTitle: string;
 };
 
 const TILES: BoardTile[] = [
-  ...NODES.map((node) => ({
+  ...ORDERED_NODES.map((node) => ({
     code: node.code,
     territory: node.territory,
     title: TERRITORY_BY_CODE[node.territory]?.name ?? node.territory,
-    shortTitle: node.code.replace("-", " "),
   })),
   {
     code: "RESULT",
     territory: "RESULT",
     title: "Resultado",
-    shortTitle: "Mapa",
   },
 ];
 
@@ -284,11 +281,8 @@ function BoardSpace({
         />
       </div>
       <div className="relative z-10 min-w-0">
-        <p className="hidden truncate text-[10px] font-semibold text-muted-foreground md:block">
+        <p className="truncate text-[10px] font-semibold text-muted-foreground md:block">
           {tile.title}
-        </p>
-        <p className="truncate font-display text-[10px] leading-tight font-bold text-foreground sm:text-xs">
-          {tile.shortTitle}
         </p>
       </div>
     </li>

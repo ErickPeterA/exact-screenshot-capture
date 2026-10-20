@@ -6,13 +6,7 @@
 import type { DimensionCode } from "./services";
 
 export type TerritoryCode =
-  | "START"
-  | "STRATEGY"
-  | "PROCESS"
-  | "PEOPLE"
-  | "FINANCE"
-  | "GOVERNANCE"
-  | "RESULT";
+  "START" | "STRATEGY" | "PROCESS" | "PEOPLE" | "FINANCE" | "GOVERNANCE" | "RESULT";
 
 export interface Territory {
   code: TerritoryCode;
@@ -41,28 +35,28 @@ export const TERRITORIES: Territory[] = [
   {
     code: "PROCESS",
     name: "Processos",
-    order: 2,
+    order: 3,
     dimension: "PROCESS",
     intro: "Como o trabalho acontece e é padronizado no dia a dia.",
   },
   {
     code: "PEOPLE",
     name: "Pessoas",
-    order: 3,
+    order: 4,
     dimension: "PEOPLE",
     intro: "Funções, carreira, cultura e desenvolvimento da equipe.",
   },
   {
     code: "FINANCE",
     name: "Financeiro",
-    order: 4,
+    order: 5,
     dimension: "FINANCE",
     intro: "Controles, informação para decisão e rentabilidade.",
   },
   {
     code: "GOVERNANCE",
     name: "Gestão e Governança",
-    order: 5,
+    order: 2,
     dimension: "STRATEGY",
     intro: "Indicadores, rituais de decisão e acompanhamento.",
   },
@@ -291,7 +285,7 @@ export const NODES: JourneyNode[] = [
     territory: "STRATEGY",
     dimension: "STRATEGY",
     maturityBearing: true,
-    next: "PROC-01",
+    next: "GOV-01",
     structuredPoint: "Regras e critérios comerciais formalizados",
     question:
       "Metas, descontos, negociações, comissões, premiações, alçadas e critérios comerciais estão formalizados e compreendidos?",
@@ -787,7 +781,7 @@ export const NODES: JourneyNode[] = [
     territory: "FINANCE",
     dimension: "FINANCE",
     maturityBearing: true,
-    next: "GOV-01",
+    next: RESULT_NODE,
     structuredPoint: "Preços alinhados a custos e margens",
     question:
       "A empresa tem segurança de que seus preços refletem custos, margens e rentabilidade necessários ao negócio?",
@@ -847,7 +841,7 @@ export const NODES: JourneyNode[] = [
       "Pelo porte, complexidade e número de sócios ou lideranças, faz sentido manter uma rotina formal de governança para analisar resultados e tomar decisões?",
     options: [
       { code: "SIM", label: "Sim", tags: ["gov:applicable"], next: "GOV-03" },
-      { code: "NAO", label: "Não / Não se aplica", next: RESULT_NODE },
+      { code: "NAO", label: "Não / Não se aplica", next: "PROC-01" },
     ],
   },
   {
@@ -872,7 +866,7 @@ export const NODES: JourneyNode[] = [
         maturity: 60,
         scores: { SRV_EST_CONSELHO_ESTRUTURA: 2 },
         tags: ["gov:not_structured"],
-        next: RESULT_NODE,
+        next: "PROC-01",
       },
       {
         code: "NAO",
@@ -880,7 +874,7 @@ export const NODES: JourneyNode[] = [
         maturity: 20,
         scores: { SRV_EST_CONSELHO_ESTRUTURA: 3 },
         tags: ["gov:not_structured"],
-        next: RESULT_NODE,
+        next: "PROC-01",
       },
     ],
   },
@@ -889,7 +883,7 @@ export const NODES: JourneyNode[] = [
     territory: "GOVERNANCE",
     dimension: "STRATEGY",
     maturityBearing: false,
-    next: RESULT_NODE,
+    next: "PROC-01",
     question:
       "Com o conselho ou reunião de gestão já estruturado, faria sentido contar com visão externa, análise crítica e facilitação especializada nas decisões?",
     options: [
@@ -904,9 +898,17 @@ export const NODE_BY_CODE: Record<string, JourneyNode> = Object.fromEntries(
   NODES.map((n) => [n.code, n]),
 );
 
-export const TERRITORY_BY_CODE = Object.fromEntries(
-  TERRITORIES.map((t) => [t.code, t]),
-) as Record<TerritoryCode, Territory>;
+/** Ordem de exibição e deslocamento da jornada, independente dos códigos internos. */
+export const ORDERED_NODES = [...NODES].sort(
+  (a, b) =>
+    (TERRITORIES.find((territory) => territory.code === a.territory)?.order ?? 0) -
+    (TERRITORIES.find((territory) => territory.code === b.territory)?.order ?? 0),
+);
+
+export const TERRITORY_BY_CODE = Object.fromEntries(TERRITORIES.map((t) => [t.code, t])) as Record<
+  TerritoryCode,
+  Territory
+>;
 
 export function nextNodeFor(nodeCode: string, optionCode: string): string | null {
   const node = NODE_BY_CODE[nodeCode];
