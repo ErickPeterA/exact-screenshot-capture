@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 const uuid = z.string().uuid();
+const publicToken = z.string().min(20).max(256);
 
 export const startJourneyFn = createServerFn({ method: "POST" })
   .inputValidator((data) =>
@@ -38,6 +39,30 @@ export const answerQuestionFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { saveAnswer } = await import("./journey.server");
     return saveAnswer(data.sessionId, data.nodeCode, data.optionCode);
+  });
+
+export const openJourneyInviteFn = createServerFn({ method: "POST" })
+  .inputValidator((data) => z.object({ token: publicToken }).parse(data))
+  .handler(async ({ data }) => {
+    const { openJourneyInvite } = await import("./journey-invites.server");
+    return openJourneyInvite(data.token);
+  });
+
+export const answerInviteQuestionFn = createServerFn({ method: "POST" })
+  .inputValidator((data) =>
+    z
+      .object({
+        token: publicToken,
+        nodeCode: z.string().min(1).max(32),
+        optionCode: z.string().min(1).max(32),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const { saveInviteAnswer } = await import("./journey-invites.server");
+    const state = await saveInviteAnswer(data.token, data.nodeCode, data.optionCode);
+    if (!state) throw new Error("Este convite não está mais disponível.");
+    return state;
   });
 
 export const getResultFn = createServerFn({ method: "POST" })
