@@ -187,13 +187,15 @@ function ResultPage() {
         )}
 
         <div className="mt-10 flex flex-wrap gap-3">
-          <Button
-            variant="ghost"
-            onClick={() => restartMutation.mutate()}
-            disabled={restartMutation.isPending}
-          >
-            Refazer a jornada
-          </Button>
+          {!data.isInvited && (
+            <Button
+              variant="ghost"
+              onClick={() => restartMutation.mutate()}
+              disabled={restartMutation.isPending}
+            >
+              Refazer a jornada
+            </Button>
+          )}
           <Button variant="ghost" asChild>
             <Link to="/">Voltar ao início</Link>
           </Button>

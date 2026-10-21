@@ -42,10 +42,46 @@ const BOARD_NODE_CODES = [...ORDERED_NODES.map((node) => node.code), RESULT_NODE
 
 function JourneyPage() {
   const { sessionId } = Route.useParams();
-  const navigate = useNavigate();
   const getState = useServerFn(getJourneyStateFn);
   const answer = useServerFn(answerQuestionFn);
+
+  const stateQuery = useQuery({
+    queryKey: ["journey", sessionId],
+    queryFn: () => getState({ data: { sessionId } }),
+    staleTime: Infinity,
+  });
+
+  if (stateQuery.isLoading) {
+    return <CenterMessage text="Carregando sua jornada..." />;
+  }
+  if (!stateQuery.data) {
+    return (
+      <CenterMessage text="Não encontramos essa jornada.">
+        <Button asChild className="mt-4">
+          <Link to="/jornada/inicio">Iniciar uma nova jornada</Link>
+        </Button>
+      </CenterMessage>
+    );
+  }
+
+  return (
+    <JourneyExperience
+      initialState={stateQuery.data}
+      answerQuestion={(vars) => answer({ data: { sessionId, ...vars } })}
+    />
+  );
+}
+
+export function JourneyExperience({
+  initialState,
+  answerQuestion,
+}: {
+  initialState: NonNullable<State>;
+  answerQuestion: (vars: { nodeCode: string; optionCode: string }) => Promise<State>;
+}) {
+  const navigate = useNavigate();
   const track = useServerFn(trackEventFn);
+  const sessionId = initialState.session.id;
 
   const [override, setOverride] = useState<string | null>(null);
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
@@ -59,14 +95,8 @@ function JourneyPage() {
   const pendingResult = useRef(false);
   const movementTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const stateQuery = useQuery({
-    queryKey: ["journey", sessionId],
-    queryFn: () => getState({ data: { sessionId } }),
-    staleTime: Infinity,
-  });
-
-  const [state, setState] = useState<State | null>(null);
-  const current = state ?? stateQuery.data ?? null;
+  const [state, setState] = useState<State | null>(initialState);
+  const current = state ?? initialState;
 
   const clearMovementTimers = useCallback(() => {
     movementTimers.current.forEach((timer) => clearTimeout(timer));
@@ -120,7 +150,7 @@ function JourneyPage() {
 
   const mutation = useMutation({
     mutationFn: (vars: { nodeCode: string; optionCode: string }) =>
-      answer({ data: { sessionId, ...vars } }),
+      answerQuestion(vars),
     onSuccess: (next, vars) => {
       setOverride(null);
       const targetCode = next?.currentNode ?? RESULT_NODE;
@@ -198,18 +228,6 @@ function JourneyPage() {
     [current?.answers],
   );
 
-  if (stateQuery.isLoading) {
-    return <CenterMessage text="Carregando sua jornada..." />;
-  }
-  if (!current) {
-    return (
-      <CenterMessage text="Não encontramos essa jornada.">
-        <Button asChild className="mt-4">
-          <Link to="/jornada/inicio">Iniciar uma nova jornada</Link>
-        </Button>
-      </CenterMessage>
-    );
-  }
   if (!node) {
     return (
       <CenterMessage text="Sua jornada está concluída.">
