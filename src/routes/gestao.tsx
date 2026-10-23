@@ -57,7 +57,6 @@ function ManagementPage() {
   const revokeInvite = useServerFn(revokeJourneyInviteFn);
   const regenerateInvite = useServerFn(regenerateJourneyInviteFn);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [replacementId, setReplacementId] = useState<string | null>(null);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -91,7 +90,7 @@ function ManagementPage() {
         : createInvite({ data: { expiresInDays: null } }),
     onSuccess: (invite) => {
       setGeneratedUrl(invite.url);
-      setReplacementId(null);
+      setDialogOpen(true);
       void refresh();
     },
   });
@@ -127,13 +126,11 @@ function ManagementPage() {
   }
 
   const openCreate = () => {
-    setReplacementId(null);
     setGeneratedUrl(null);
     setCopyFeedback(null);
     createMutation.mutate(null);
   };
   const openReplacement = (inviteId: string) => {
-    setReplacementId(inviteId);
     setGeneratedUrl(null);
     setCopyFeedback(null);
     createMutation.mutate(inviteId);
@@ -338,14 +335,11 @@ function ManagementPage() {
           <DialogHeader>
             <DialogTitle>Link gerado</DialogTitle>
             <DialogDescription>
-              {generatedUrl
-                ? "O link é exibido somente agora. Depois de fechar esta janela, ele não poderá ser recuperado."
-                : replacementId
-                  ? "O convite anterior será revogado quando o novo link for criado."
-                  : "Preencha os dados do contato que receberá a Jornada."}
+              O link é exibido somente agora. Depois de fechar esta janela, ele não poderá ser
+              recuperado.
             </DialogDescription>
           </DialogHeader>
-          {generatedUrl ? (
+          {generatedUrl && (
             <div className="grid gap-3">
               <Label htmlFor="generated-link">Link gerado</Label>
               <Input id="generated-link" readOnly value={generatedUrl} />
@@ -358,76 +352,6 @@ function ManagementPage() {
                 </p>
               )}
             </div>
-          ) : (
-            <form
-              className="grid gap-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                createMutation.mutate();
-              }}
-            >
-              <Field
-                label="Nome da empresa/cliente"
-                value={form.clientName}
-                onChange={(clientName) => setForm({ ...form, clientName })}
-                required
-              />
-              <Field
-                label="Nome do contato"
-                value={form.contactName}
-                onChange={(contactName) => setForm({ ...form, contactName })}
-                required
-              />
-              <Field
-                label="E-mail do contato"
-                value={form.contactEmail}
-                type="email"
-                onChange={(contactEmail) => setForm({ ...form, contactEmail })}
-                required
-              />
-              <Field
-                label="Referência externa (opcional)"
-                value={form.externalReference}
-                onChange={(externalReference) => setForm({ ...form, externalReference })}
-              />
-              <Field
-                label="CRM client ID (opcional)"
-                value={form.crmClientId}
-                onChange={(crmClientId) => setForm({ ...form, crmClientId })}
-              />
-              <div className="grid gap-2">
-                <Label htmlFor="expiration">Validade do link</Label>
-                <select
-                  id="expiration"
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                  value={form.expiresInDays ?? "never"}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      expiresInDays:
-                        event.target.value === "never"
-                          ? null
-                          : (Number(event.target.value) as 7 | 15 | 30),
-                    })
-                  }
-                >
-                  <option value="7">7 dias</option>
-                  <option value="15">15 dias</option>
-                  <option value="30">30 dias</option>
-                  <option value="never">Sem expiração</option>
-                </select>
-              </div>
-              {createMutation.isError && (
-                <p role="alert" className="text-sm text-destructive">
-                  Não foi possível gerar a Jornada. Revise os dados e tente novamente.
-                </p>
-              )}
-              <DialogFooter>
-                <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "Gerando…" : "Gerar Jornada"}
-                </Button>
-              </DialogFooter>
-            </form>
           )}
         </DialogContent>
       </Dialog>
@@ -440,33 +364,6 @@ function Summary({ label, value }: { label: string; value: number }) {
     <div className="rounded-xl border bg-background p-5">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="mt-2 font-display text-3xl font-semibold">{value}</p>
-    </div>
-  );
-}
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  required = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-  required?: boolean;
-}) {
-  const id = label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-");
-  return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        required={required}
-      />
     </div>
   );
 }
