@@ -3,6 +3,11 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { query } from "./lib/db.server";
+import {
+  createJourneyAdminSession,
+  exchangeCrmSsoCode,
+  serializeJourneyAdminCookie,
+} from "./lib/journey-admin-auth.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -48,6 +53,9 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      if (request.method === "GET" && new URL(request.url).pathname === "/auth/sso") {
+        return await handleSsoCallback(request);
+      }
       if (request.method === "GET" && new URL(request.url).pathname === "/health") {
         try {
           await query("SELECT 1");
@@ -69,3 +77,28 @@ export default {
     }
   },
 };
+
+async function handleSsoCallback(request: Request) {
+  const code = new URL(request.url).searchParams.get("code") ?? "";
+  try {
+    const user = await exchangeCrmSsoCode(code);
+    const session = await createJourneyAdminSession(user);
+    return new Response(null, {
+      status: 302,
+      headers: {
+        location: new URL("/gestao", request.url).toString(),
+        "set-cookie": serializeJourneyAdminCookie(session.token, session.expiresAt),
+        "cache-control": "no-store",
+      },
+    });
+  } catch {
+    return new Response(renderSsoError(), {
+      status: 401,
+      headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+    });
+  }
+}
+
+function renderSsoError() {
+  return "<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Acesso indisponível</title></head><body><main><h1>Não foi possível acessar a Jornada</h1><p>Volte ao CRM e tente novamente.</p></main></body></html>";
+}

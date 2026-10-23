@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GestaoRouteImport } from './routes/gestao'
 import { Route as JTokenRouteImport } from './routes/j/$token'
 import { Route as JornadaSessionIdRouteImport } from './routes/jornada/$sessionId'
 import { Route as JornadaInicioRouteImport } from './routes/jornada/inicio'
@@ -18,6 +19,11 @@ import { Route as ResultadoSessionIdRouteImport } from './routes/resultado/$sess
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GestaoRoute = GestaoRouteImport.update({
+  id: '/gestao',
+  path: '/gestao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JTokenRoute = JTokenRouteImport.update({
@@ -43,6 +49,7 @@ const ResultadoSessionIdRoute = ResultadoSessionIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/gestao': typeof GestaoRoute
   '/j/$token': typeof JTokenRoute
   '/jornada/$sessionId': typeof JornadaSessionIdRoute
   '/jornada/inicio': typeof JornadaInicioRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/gestao': typeof GestaoRoute
   '/j/$token': typeof JTokenRoute
   '/jornada/$sessionId': typeof JornadaSessionIdRoute
   '/jornada/inicio': typeof JornadaInicioRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/gestao': typeof GestaoRoute
   '/j/$token': typeof JTokenRoute
   '/jornada/$sessionId': typeof JornadaSessionIdRoute
   '/jornada/inicio': typeof JornadaInicioRoute
@@ -67,6 +76,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/gestao'
     | '/j/$token'
     | '/jornada/$sessionId'
     | '/jornada/inicio'
@@ -74,6 +84,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/gestao'
     | '/j/$token'
     | '/jornada/$sessionId'
     | '/jornada/inicio'
@@ -81,6 +92,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/gestao'
     | '/j/$token'
     | '/jornada/$sessionId'
     | '/jornada/inicio'
@@ -89,6 +101,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  GestaoRoute: typeof GestaoRoute
   JTokenRoute: typeof JTokenRoute
   JornadaSessionIdRoute: typeof JornadaSessionIdRoute
   JornadaInicioRoute: typeof JornadaInicioRoute
@@ -102,6 +115,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gestao': {
+      id: '/gestao'
+      path: '/gestao'
+      fullPath: '/gestao'
+      preLoaderRoute: typeof GestaoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/j/$token': {
@@ -137,6 +157,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  GestaoRoute: GestaoRoute,
   JTokenRoute: JTokenRoute,
   JornadaSessionIdRoute: JornadaSessionIdRoute,
   JornadaInicioRoute: JornadaInicioRoute,

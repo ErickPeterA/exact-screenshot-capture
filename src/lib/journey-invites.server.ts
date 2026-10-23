@@ -24,6 +24,26 @@ type InviteRow = {
   external_reference: string | null;
 };
 
+type AdminInviteRow = {
+  id: string;
+  status: "created" | "started" | "completed" | "revoked";
+  client_name: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  external_reference: string | null;
+  crm_client_id: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  revoked_at: string | null;
+  expires_at: string | null;
+  session_id: string | null;
+};
+
+export type JourneyInviteForManagement = Omit<AdminInviteRow, "status"> & {
+  status: AdminInviteRow["status"] | "expired";
+};
+
 export type PublicJourneyAccess =
   | { status: "active"; state: NonNullable<Awaited<ReturnType<typeof getState>>> }
   | { status: "invalid" | "completed" | "revoked" | "expired" };
@@ -67,6 +87,63 @@ export async function createJourneyInvite(input: CreateJourneyInviteInput = {}) 
     token,
     url: `${baseUrl}/j/${encodeURIComponent(token)}`,
   };
+}
+
+function managementStatus(invite: AdminInviteRow): JourneyInviteForManagement["status"] {
+  if (
+    invite.expires_at &&
+    new Date(invite.expires_at).getTime() <= Date.now() &&
+    invite.status !== "completed" &&
+    invite.status !== "revoked"
+  ) {
+    return "expired";
+  }
+  return invite.status;
+}
+
+function toManagementInvite(invite: AdminInviteRow): JourneyInviteForManagement {
+  return { ...invite, status: managementStatus(invite) };
+}
+
+export async function listJourneyInvites(): Promise<JourneyInviteForManagement[]> {
+  const { rows } = await query<AdminInviteRow>(
+    `SELECT
+       invites.id, invites.status, invites.client_name, invites.contact_name, invites.contact_email,
+       invites.external_reference, invites.crm_client_id, invites.created_at, invites.started_at,
+       invites.completed_at, invites.revoked_at, invites.expires_at, sessions.id AS session_id
+     FROM journey_invites AS invites
+     LEFT JOIN journey_sessions AS sessions ON sessions.journey_invite_id = invites.id
+     ORDER BY invites.created_at DESC`,
+  );
+  return rows.map(toManagementInvite);
+}
+
+export async function revokeJourneyInvite(inviteId: string) {
+  const { rows } = await query<{ id: string }>(
+    `UPDATE journey_invites
+        SET status = 'revoked', revoked_at = now()
+      WHERE id = $1
+        AND status IN ('created', 'started')
+        AND revoked_at IS NULL
+      RETURNING id`,
+    [inviteId],
+  );
+  if (!rows[0]) throw new Error("Esta Jornada não está disponível para revogação.");
+  return { id: rows[0].id };
+}
+
+export async function regenerateJourneyInvite(inviteId: string, input: CreateJourneyInviteInput) {
+  const { rows } = await query<{ id: string }>(
+    `UPDATE journey_invites
+        SET status = 'revoked', revoked_at = now()
+      WHERE id = $1
+        AND status IN ('created', 'started')
+        AND revoked_at IS NULL
+      RETURNING id`,
+    [inviteId],
+  );
+  if (!rows[0]) throw new Error("Não foi possível gerar um novo link para esta Jornada.");
+  return createJourneyInvite(input);
 }
 
 async function findInvite(token: string) {

@@ -3,6 +3,22 @@ import { z } from "zod";
 
 const uuid = z.string().uuid();
 const publicToken = z.string().min(20).max(256);
+const optionalText = z.string().trim().max(160).optional().transform((value) => value || null);
+const inviteInput = z.object({
+  clientName: z.string().trim().min(2).max(160),
+  contactName: z.string().trim().min(2).max(160),
+  contactEmail: z.string().trim().email().max(254),
+  externalReference: optionalText,
+  crmClientId: optionalText,
+  expiresInDays: z.union([z.literal(7), z.literal(15), z.literal(30), z.null()]),
+});
+
+function expiresAtFromDays(days: 7 | 15 | 30 | null) {
+  if (days === null) return null;
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + days);
+  return expiresAt;
+}
 
 export const startJourneyFn = createServerFn({ method: "POST" })
   .inputValidator((data) =>
@@ -46,6 +62,81 @@ export const openJourneyInviteFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { openJourneyInvite } = await import("./journey-invites.server");
     return openJourneyInvite(data.token);
+  });
+
+export const listJourneyInvitesFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { listJourneyInvites } = await import("./journey-invites.server");
+  const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
+  await requireJourneyAdminSession();
+  return listJourneyInvites();
+});
+
+export const getJourneyAdminSessionFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getJourneyAdminSession } = await import("./journey-admin-auth.server");
+  return getJourneyAdminSession();
+});
+
+export const logoutJourneyAdminFn = createServerFn({ method: "POST" }).handler(async () => {
+  const { deleteCookie, getCookie } = await import("@tanstack/react-start/server");
+  const { JOURNEY_ADMIN_COOKIE, revokeJourneyAdminSession } = await import("./journey-admin-auth.server");
+  await revokeJourneyAdminSession(getCookie(JOURNEY_ADMIN_COOKIE));
+  deleteCookie(JOURNEY_ADMIN_COOKIE, { path: "/", httpOnly: true, sameSite: "lax", secure: process.env["NODE_ENV"] === "production" });
+  return { ok: true };
+});
+
+export const getJourneyAdminResultPathFn = createServerFn({ method: "POST" })
+  .inputValidator((data) => z.object({ sessionId: uuid }).parse(data))
+  .handler(async ({ data }) => {
+    const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
+    const { query } = await import("./db.server");
+    await requireJourneyAdminSession();
+    const { rows } = await query<{ id: string }>(
+      "SELECT id FROM journey_sessions WHERE id = $1 AND journey_invite_id IS NOT NULL",
+      [data.sessionId],
+    );
+    if (!rows[0]) throw new Error("Resultado não encontrado.");
+    return { sessionId: rows[0].id };
+  });
+
+export const createJourneyInviteFn = createServerFn({ method: "POST" })
+  .inputValidator((data) => inviteInput.parse(data))
+  .handler(async ({ data }) => {
+    const { createJourneyInvite } = await import("./journey-invites.server");
+    const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
+    await requireJourneyAdminSession();
+    return createJourneyInvite({
+      client_name: data.clientName,
+      contact_name: data.contactName,
+      contact_email: data.contactEmail,
+      external_reference: data.externalReference,
+      crm_client_id: data.crmClientId,
+      expires_at: expiresAtFromDays(data.expiresInDays),
+    });
+  });
+
+export const revokeJourneyInviteFn = createServerFn({ method: "POST" })
+  .inputValidator((data) => z.object({ inviteId: uuid }).parse(data))
+  .handler(async ({ data }) => {
+    const { revokeJourneyInvite } = await import("./journey-invites.server");
+    const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
+    await requireJourneyAdminSession();
+    return revokeJourneyInvite(data.inviteId);
+  });
+
+export const regenerateJourneyInviteFn = createServerFn({ method: "POST" })
+  .inputValidator((data) => z.object({ inviteId: uuid }).merge(inviteInput).parse(data))
+  .handler(async ({ data }) => {
+    const { regenerateJourneyInvite } = await import("./journey-invites.server");
+    const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
+    await requireJourneyAdminSession();
+    return regenerateJourneyInvite(data.inviteId, {
+      client_name: data.clientName,
+      contact_name: data.contactName,
+      contact_email: data.contactEmail,
+      external_reference: data.externalReference,
+      crm_client_id: data.crmClientId,
+      expires_at: expiresAtFromDays(data.expiresInDays),
+    });
   });
 
 export const answerInviteQuestionFn = createServerFn({ method: "POST" })
