@@ -3,13 +3,20 @@ import { createHash, randomBytes } from "node:crypto";
 import { JOURNEY_VERSION } from "@/journey/config";
 
 import { query } from "./db.server";
-import { sendJourneyCreatedEvent } from "./journey-events.server";
+import { sendJourneyCreatedEvent, sendJourneyEvent } from "./journey-events.server";
 import { getState, logEvent, saveAnswer } from "./journey.server";
 
 export type ParticipantProfile = {
   role: "owner" | "director" | "manager" | "professional" | "other";
   teamSize: "solo" | "2-10" | "11-50" | "51-200" | "201+";
   mainChallenge: string;
+};
+
+export type JourneyIdentification = {
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
 };
 
 export type CreateJourneyInviteInput = {
@@ -92,7 +99,7 @@ export async function createJourneyInvite(input: CreateJourneyInviteInput = {}) 
 
   let syncWarning: string | null = null;
   try {
-    await sendJourneyCreatedEvent({ id: rows[0]!.id, expiresAt });
+    await sendJourneyCreatedEvent(rows[0]!.id, expiresAt);
   } catch {
     // Do not include the internal URL, secret, public token, or underlying error in logs.
     console.error("Failed to deliver journey.created event to CRM.");
@@ -205,8 +212,7 @@ export async function openJourneyInvite(token: string): Promise<PublicJourneyAcc
 
 export async function startJourneyInvite(
   token: string,
-  participantName: string,
-  participantCompany: string,
+  identification: JourneyIdentification,
   profile: ParticipantProfile,
 ): Promise<PublicJourneyAccess> {
   const invite = await findInvite(token);
@@ -219,26 +225,27 @@ export async function startJourneyInvite(
   const company =
     invite.client_name?.trim() || invite.external_reference?.trim() || "Empresa não informada";
 
-  const { rows } = await query<{ id: string }>(
+  const { rows } = await query<{ id: string; journey_id: string }>(
     `WITH active_invite AS (
        UPDATE journey_invites
           SET status = 'started',
               started_at = COALESCE(started_at, now()),
-              contact_name = $2
+              contact_name = $2,
+              contact_email = $4
         WHERE id = $1
-          AND status IN ('created', 'started')
+          AND status = 'created'
           AND revoked_at IS NULL
           AND (expires_at IS NULL OR expires_at > now())
        RETURNING id
      )
      INSERT INTO journey_sessions
        (name, company, journey_version, status, current_node, journey_invite_id)
-     SELECT $2, $3, $4, 'started', 'START-01', id
+     SELECT $2, $3, $5, 'started', 'START-01', id
        FROM active_invite
      ON CONFLICT (journey_invite_id) WHERE journey_invite_id IS NOT NULL
      DO UPDATE SET journey_invite_id = EXCLUDED.journey_invite_id
-     RETURNING id`,
-    [invite.id, participantName, participantCompany, JOURNEY_VERSION],
+     RETURNING id, journey_invite_id AS journey_id`,
+    [invite.id, identification.name, identification.company, identification.email, JOURNEY_VERSION],
   );
 
   const sessionId = rows[0]?.id;
@@ -247,7 +254,27 @@ export async function startJourneyInvite(
     return { status: current ? (blockedStatus(current) ?? "invalid") : "invalid" };
   }
 
-  await logEvent(sessionId, "participant_profile_submitted", null, profile);
+  const journeyId = rows[0]!.journey_id;
+  try {
+    await sendJourneyEvent({ event_type: "journey.started", journey: { id: journeyId } });
+  } catch {
+    console.error("Failed to deliver journey.started event to CRM.");
+  }
+
+  await logEvent(sessionId, "participant_profile_submitted", null, {
+    ...identification,
+    ...profile,
+  });
+
+  try {
+    await sendJourneyEvent({
+      event_type: "journey.identified",
+      journey: { id: journeyId },
+      identification,
+    });
+  } catch {
+    console.error("Failed to deliver journey.identified event to CRM.");
+  }
 
   const state = await getState(sessionId);
   if (!state) return { status: "invalid" };

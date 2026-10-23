@@ -19,6 +19,8 @@ export const startJourneyFn = createServerFn({ method: "POST" })
       .object({
         name: z.string().trim().min(2).max(120),
         company: z.string().trim().min(2).max(160),
+        email: z.string().trim().email().max(254),
+        phone: z.string().trim().min(7).max(30),
       })
       .parse(data),
   )
@@ -72,11 +74,15 @@ export const startJourneyInviteFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { startJourneyInvite } = await import("./journey-invites.server");
-    return startJourneyInvite(data.token, data.name, data.company, {
-      role: data.role,
-      teamSize: data.teamSize,
-      mainChallenge: data.mainChallenge,
-    });
+    return startJourneyInvite(
+      data.token,
+      { name: data.name, company: data.company, email: data.email, phone: data.phone },
+      {
+        role: data.role,
+        teamSize: data.teamSize,
+        mainChallenge: data.mainChallenge,
+      },
+    );
   });
 
 export const listJourneyInvitesFn = createServerFn({ method: "GET" }).handler(async () => {

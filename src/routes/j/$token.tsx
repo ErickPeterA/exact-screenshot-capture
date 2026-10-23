@@ -81,6 +81,8 @@ function InviteDetailsForm({
 }) {
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [role, setRole] = useState<
     "" | "owner" | "director" | "manager" | "professional" | "other"
   >("");
@@ -94,6 +96,8 @@ function InviteDetailsForm({
           token,
           name: name.trim(),
           company: company.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
           role,
           teamSize,
           mainChallenge: mainChallenge.trim(),
@@ -105,6 +109,8 @@ function InviteDetailsForm({
   const valid =
     name.trim().length >= 2 &&
     company.trim().length >= 2 &&
+    email.includes("@") &&
+    phone.trim().length >= 7 &&
     Boolean(role) &&
     Boolean(teamSize) &&
     mainChallenge.trim().length >= 10;
@@ -139,6 +145,29 @@ function InviteDetailsForm({
               id="invite-company"
               value={company}
               onChange={(event) => setCompany(event.target.value)}
+              required
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="invite-email">E-mail</Label>
+            <Input
+              id="invite-email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              required
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="invite-phone">Telefone</Label>
+            <Input
+              id="invite-phone"
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              autoComplete="tel"
+              placeholder="(00) 00000-0000"
               required
             />
           </div>

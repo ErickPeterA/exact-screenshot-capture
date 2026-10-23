@@ -1,11 +1,26 @@
 import { randomUUID } from "node:crypto";
 
-type JourneyCreatedInput = {
-  id: string;
-  expiresAt: Date | null;
-};
+type JourneyEvent =
+  | {
+      event_type: "journey.created";
+      journey: { id: string; expires_at: string | null };
+    }
+  | {
+      event_type: "journey.started";
+      journey: { id: string };
+    }
+  | {
+      event_type: "journey.identified";
+      journey: { id: string };
+      identification: {
+        company: string;
+        name: string;
+        email: string;
+        phone: string;
+      };
+    };
 
-export async function sendJourneyCreatedEvent({ id, expiresAt }: JourneyCreatedInput) {
+export async function sendJourneyEvent(event: JourneyEvent) {
   const baseUrl = process.env["CRM_INTERNAL_URL"]?.replace(/\/$/, "");
   const secret = process.env["JOURNEY_EVENTS_SECRET"];
   if (!baseUrl || !secret) throw new Error("Journey events integration is not configured.");
@@ -18,15 +33,18 @@ export async function sendJourneyCreatedEvent({ id, expiresAt }: JourneyCreatedI
     },
     body: JSON.stringify({
       event_id: randomUUID(),
-      event_type: "journey.created",
       occurred_at: new Date().toISOString(),
-      journey: {
-        id,
-        expires_at: expiresAt?.toISOString() ?? null,
-      },
+      ...event,
     }),
     signal: AbortSignal.timeout(10_000),
   });
 
-  if (!response.ok) throw new Error("CRM rejected journey.created event.");
+  if (!response.ok) throw new Error("CRM rejected journey event.");
+}
+
+export function sendJourneyCreatedEvent(id: string, expiresAt: Date | null) {
+  return sendJourneyEvent({
+    event_type: "journey.created",
+    journey: { id, expires_at: expiresAt?.toISOString() ?? null },
+  });
 }
