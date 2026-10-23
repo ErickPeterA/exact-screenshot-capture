@@ -83,14 +83,16 @@ async function handleSsoCallback(request: Request) {
   try {
     const user = await exchangeCrmSsoCode(code);
     const session = await createJourneyAdminSession(user);
-    return new Response(null, {
-      status: 302,
-      headers: {
-        location: new URL("/gestao", request.url).toString(),
-        "set-cookie": serializeJourneyAdminCookie(session.token, session.expiresAt),
-        "cache-control": "no-store",
-      },
+    // Keep this as a plain HTTP redirect. This callback is handled before
+    // TanStack Start, so throwing TanStack's redirect Response would be
+    // caught by the error boundary. A relative Location also prevents a
+    // reverse proxy's internal host/protocol from leaking into the redirect.
+    const headers = new Headers({
+      location: "/gestao",
+      "cache-control": "no-store",
     });
+    headers.append("set-cookie", serializeJourneyAdminCookie(session.token, session.expiresAt));
+    return new Response(null, { status: 303, headers });
   } catch {
     return new Response(renderSsoError(), {
       status: 401,
