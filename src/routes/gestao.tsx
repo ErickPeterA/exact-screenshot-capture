@@ -11,7 +11,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -32,8 +31,6 @@ export const Route = createFileRoute("/gestao")({
   component: ManagementPage,
 });
 
-type ExpirationDays = 7 | 15 | 30 | null;
-
 const statusMeta = {
   created: { label: "Não iniciada", variant: "secondary" as const },
   started: { label: "Em andamento", variant: "default" as const },
@@ -44,7 +41,9 @@ const statusMeta = {
 
 function formatDate(value: string | null) {
   return value
-    ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value))
+    ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
+        new Date(value),
+      )
     : "—";
 }
 
@@ -62,9 +61,12 @@ function ManagementPage() {
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [form, setForm] = useState({ clientName: "", contactName: "", contactEmail: "", externalReference: "", crmClientId: "", expiresInDays: 15 as ExpirationDays });
 
-  const adminQuery = useQuery({ queryKey: ["journey-admin-session"], queryFn: () => getAdminSession(), retry: false });
+  const adminQuery = useQuery({
+    queryKey: ["journey-admin-session"],
+    queryFn: () => getAdminSession(),
+    retry: false,
+  });
   const invitesQuery = useQuery({
     queryKey: ["management-invites"],
     queryFn: () => listInvites(),
@@ -82,19 +84,11 @@ function ManagementPage() {
     mutationFn: (sessionId: string) => getAdminResultPath({ data: { sessionId } }),
     onSuccess: ({ sessionId }) => window.location.assign(`/resultado/${sessionId}`),
   });
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["management-invites"] });
-
-  if (adminQuery.isLoading) {
-    return <main className="flex min-h-screen items-center justify-center px-6 text-muted-foreground">Verificando acesso…</main>;
-  }
-  if (!adminQuery.data) {
-    return <main className="flex min-h-screen items-center justify-center px-6"><div className="max-w-md text-center"><h1 className="font-display text-2xl font-semibold">Acesse a Jornada através do CRM.</h1><p className="mt-3 text-sm text-muted-foreground">Esta área é exclusiva para usuários autenticados pelo CRM.</p></div></main>;
-  }
-
   const createMutation = useMutation({
-    mutationFn: () => replacementId
-      ? regenerateInvite({ data: { inviteId: replacementId, ...form } })
-      : createInvite({ data: form }),
+    mutationFn: (inviteId: string | null) =>
+      inviteId
+        ? regenerateInvite({ data: { inviteId, expiresInDays: null } })
+        : createInvite({ data: { expiresInDays: null } }),
     onSuccess: (invite) => {
       setGeneratedUrl(invite.url);
       setReplacementId(null);
@@ -107,22 +101,42 @@ function ManagementPage() {
       setNotice("Jornada revogada. O link não pode mais ser utilizado.");
       void refresh();
     },
-    onError: () => setNotice("Não foi possível revogar esta Jornada. Atualize a lista e tente novamente."),
+    onError: () =>
+      setNotice("Não foi possível revogar esta Jornada. Atualize a lista e tente novamente."),
   });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["management-invites"] });
+
+  if (adminQuery.isLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-6 text-muted-foreground">
+        Verificando acesso…
+      </main>
+    );
+  }
+  if (!adminQuery.data) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-6">
+        <div className="max-w-md text-center">
+          <h1 className="font-display text-2xl font-semibold">Acesse a Jornada através do CRM.</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Esta área é exclusiva para usuários autenticados pelo CRM.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   const openCreate = () => {
-    setForm({ clientName: "", contactName: "", contactEmail: "", externalReference: "", crmClientId: "", expiresInDays: 15 });
     setReplacementId(null);
     setGeneratedUrl(null);
     setCopyFeedback(null);
-    setDialogOpen(true);
+    createMutation.mutate(null);
   };
-  const openReplacement = (invite: NonNullable<typeof invitesQuery.data>[number]) => {
-    setForm({ clientName: invite.client_name ?? "", contactName: invite.contact_name ?? "", contactEmail: invite.contact_email ?? "", externalReference: invite.external_reference ?? "", crmClientId: invite.crm_client_id ?? "", expiresInDays: 15 });
-    setReplacementId(invite.id);
+  const openReplacement = (inviteId: string) => {
+    setReplacementId(inviteId);
     setGeneratedUrl(null);
     setCopyFeedback(null);
-    setDialogOpen(true);
+    createMutation.mutate(inviteId);
   };
   const copyLink = async () => {
     if (!generatedUrl) return;
@@ -136,34 +150,323 @@ function ManagementPage() {
 
   const invites = invitesQuery.data ?? [];
   const counts = { created: 0, started: 0, completed: 0, revoked: 0 };
-  invites.forEach((invite) => { if (invite.status in counts) counts[invite.status as keyof typeof counts] += 1; });
+  invites.forEach((invite) => {
+    if (invite.status in counts) counts[invite.status as keyof typeof counts] += 1;
+  });
 
   return (
     <main className="min-h-screen bg-surface-2 pb-12">
       <header className="border-b bg-background">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <Link to="/" aria-label="Ir para a página inicial"><Wordmark /></Link>
-          <div className="flex items-center gap-3"><div className="hidden text-right text-sm sm:block"><p className="font-medium">{adminQuery.data.name ?? "Usuário CRM"}</p><p className="text-muted-foreground">{adminQuery.data.email ?? adminQuery.data.role ?? ""}</p></div><Button variant="outline" onClick={() => logoutMutation.mutate()} disabled={logoutMutation.isPending}>Sair</Button><Button onClick={openCreate}><Plus /> Gerar Jornada</Button></div>
+          <Link to="/" aria-label="Ir para a página inicial">
+            <Wordmark />
+          </Link>
+          <div className="flex items-center gap-3">
+            <div className="hidden text-right text-sm sm:block">
+              <p className="font-medium">{adminQuery.data.name ?? "Usuário CRM"}</p>
+              <p className="text-muted-foreground">
+                {adminQuery.data.email ?? adminQuery.data.role ?? ""}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+            >
+              Sair
+            </Button>
+            <Button onClick={openCreate} disabled={createMutation.isPending}>
+              <Plus /> Gerar Jornada
+            </Button>
+          </div>
         </div>
       </header>
       <div className="mx-auto max-w-7xl px-6 py-9">
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <div><p className="text-sm font-medium text-muted-foreground">Área interna</p><h1 className="font-display text-3xl font-semibold">Jornada do Empreendedor</h1></div>
-          {invitesQuery.isFetching && <span className="text-sm text-muted-foreground">Atualizando…</span>}
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Área interna</p>
+            <h1 className="font-display text-3xl font-semibold">Jornada do Empreendedor</h1>
+          </div>
+          {invitesQuery.isFetching && (
+            <span className="text-sm text-muted-foreground">Atualizando…</span>
+          )}
         </div>
-        {notice && <p className="mt-4 text-sm text-muted-foreground" role="status">{notice}</p>}
-        <section className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Resumo das jornadas">
-          <Summary label="Não iniciadas" value={counts.created} /><Summary label="Em andamento" value={counts.started} /><Summary label="Concluídas" value={counts.completed} /><Summary label="Revogadas" value={counts.revoked} />
+        {notice && (
+          <p className="mt-4 text-sm text-muted-foreground" role="status">
+            {notice}
+          </p>
+        )}
+        <section
+          className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          aria-label="Resumo das jornadas"
+        >
+          <Summary label="Não iniciadas" value={counts.created} />
+          <Summary label="Em andamento" value={counts.started} />
+          <Summary label="Concluídas" value={counts.completed} />
+          <Summary label="Revogadas" value={counts.revoked} />
         </section>
         <section className="surface-card mt-8 overflow-hidden" aria-labelledby="lista-jornadas">
-          <div className="flex items-center justify-between border-b px-6 py-5"><div><h2 id="lista-jornadas" className="font-display text-lg font-semibold">Jornadas geradas</h2><p className="mt-1 text-sm text-muted-foreground">As mais recentes aparecem primeiro.</p></div></div>
-          {invitesQuery.isLoading ? <div className="p-8 text-sm text-muted-foreground">Carregando Jornadas…</div> : invitesQuery.isError ? <div className="p-8 text-sm text-destructive">Não foi possível carregar as Jornadas. Tente novamente.</div> : invites.length === 0 ? <div className="p-10 text-center"><p className="font-medium">Nenhuma Jornada gerada ainda.</p><p className="mt-1 text-sm text-muted-foreground">Crie o primeiro link para enviar a um cliente.</p><Button className="mt-5" onClick={openCreate}><Plus /> Gerar Jornada</Button></div> : <div className="overflow-x-auto"><table className="w-full min-w-[1080px] text-left text-sm"><thead className="bg-muted/50 text-xs text-muted-foreground"><tr>{["Cliente/Empresa", "Contato", "E-mail", "Status", "Criada em", "Iniciada em", "Concluída em", "Expira em", "Ações"].map((heading) => <th key={heading} className="px-4 py-3 font-medium">{heading}</th>)}</tr></thead><tbody className="divide-y">{invites.map((invite) => { const status = statusMeta[invite.status]; const actionable = invite.status === "created" || invite.status === "started"; return <tr key={invite.id} className="align-top"><td className="px-4 py-4 font-medium">{invite.client_name ?? "—"}</td><td className="px-4 py-4">{invite.contact_name ?? "—"}</td><td className="px-4 py-4 text-muted-foreground">{invite.contact_email ?? "—"}</td><td className="px-4 py-4"><Badge variant={status.variant}>{status.label}</Badge></td><td className="px-4 py-4 whitespace-nowrap">{formatDate(invite.created_at)}</td><td className="px-4 py-4 whitespace-nowrap">{formatDate(invite.started_at)}</td><td className="px-4 py-4 whitespace-nowrap">{formatDate(invite.completed_at)}</td><td className="px-4 py-4 whitespace-nowrap">{formatDate(invite.expires_at)}</td><td className="px-4 py-4"><div className="flex flex-wrap gap-2">{invite.status === "completed" && invite.session_id && <Button size="sm" variant="outline" onClick={() => openResultMutation.mutate(invite.session_id!)} disabled={openResultMutation.isPending}><ExternalLink /> Ver resultado</Button>}{actionable && <Button size="sm" variant="outline" onClick={() => { if (window.confirm("Revogar esta Jornada? O link deixará de funcionar imediatamente.")) revokeMutation.mutate(invite.id); }} disabled={revokeMutation.isPending}>Revogar</Button>}{invite.status !== "completed" && invite.status !== "revoked" && <Button size="sm" variant="ghost" onClick={() => openReplacement(invite)}><RotateCcw /> Gerar novo link</Button>}<span className="basis-full text-xs text-muted-foreground">Link não armazenado</span></div></td></tr>; })}</tbody></table></div>}
+          <div className="flex items-center justify-between border-b px-6 py-5">
+            <div>
+              <h2 id="lista-jornadas" className="font-display text-lg font-semibold">
+                Jornadas geradas
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                As mais recentes aparecem primeiro.
+              </p>
+            </div>
+          </div>
+          {invitesQuery.isLoading ? (
+            <div className="p-8 text-sm text-muted-foreground">Carregando Jornadas…</div>
+          ) : invitesQuery.isError ? (
+            <div className="p-8 text-sm text-destructive">
+              Não foi possível carregar as Jornadas. Tente novamente.
+            </div>
+          ) : invites.length === 0 ? (
+            <div className="p-10 text-center">
+              <p className="font-medium">Nenhuma Jornada gerada ainda.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Crie o primeiro link para enviar a um cliente.
+              </p>
+              <Button className="mt-5" onClick={openCreate} disabled={createMutation.isPending}>
+                <Plus /> Gerar Jornada
+              </Button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1080px] text-left text-sm">
+                <thead className="bg-muted/50 text-xs text-muted-foreground">
+                  <tr>
+                    {[
+                      "Cliente/Empresa",
+                      "Contato",
+                      "E-mail",
+                      "Status",
+                      "Criada em",
+                      "Iniciada em",
+                      "Concluída em",
+                      "Expira em",
+                      "Ações",
+                    ].map((heading) => (
+                      <th key={heading} className="px-4 py-3 font-medium">
+                        {heading}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {invites.map((invite) => {
+                    const status = statusMeta[invite.status];
+                    const actionable = invite.status === "created" || invite.status === "started";
+                    return (
+                      <tr key={invite.id} className="align-top">
+                        <td className="px-4 py-4 font-medium">{invite.client_name ?? "—"}</td>
+                        <td className="px-4 py-4">{invite.contact_name ?? "—"}</td>
+                        <td className="px-4 py-4 text-muted-foreground">
+                          {invite.contact_email ?? "—"}
+                        </td>
+                        <td className="px-4 py-4">
+                          <Badge variant={status.variant}>{status.label}</Badge>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {formatDate(invite.created_at)}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {formatDate(invite.started_at)}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {formatDate(invite.completed_at)}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {formatDate(invite.expires_at)}
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            {invite.status === "completed" && invite.session_id && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openResultMutation.mutate(invite.session_id!)}
+                                disabled={openResultMutation.isPending}
+                              >
+                                <ExternalLink /> Ver resultado
+                              </Button>
+                            )}
+                            {actionable && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      "Revogar esta Jornada? O link deixará de funcionar imediatamente.",
+                                    )
+                                  )
+                                    revokeMutation.mutate(invite.id);
+                                }}
+                                disabled={revokeMutation.isPending}
+                              >
+                                Revogar
+                              </Button>
+                            )}
+                            {invite.status !== "completed" && invite.status !== "revoked" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openReplacement(invite.id)}
+                                disabled={createMutation.isPending}
+                              >
+                                <RotateCcw /> Gerar novo link
+                              </Button>
+                            )}
+                            <span className="basis-full text-xs text-muted-foreground">
+                              Link não armazenado
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       </div>
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>{generatedUrl ? "Link gerado" : replacementId ? "Gerar novo link" : "Gerar Jornada"}</DialogTitle><DialogDescription>{generatedUrl ? "O link é exibido somente agora. Depois de fechar esta janela, ele não poderá ser recuperado." : replacementId ? "O convite anterior será revogado quando o novo link for criado." : "Preencha os dados do contato que receberá a Jornada."}</DialogDescription></DialogHeader>{generatedUrl ? <div className="grid gap-3"><Label htmlFor="generated-link">Link gerado</Label><Input id="generated-link" readOnly value={generatedUrl} /><Button onClick={copyLink}><Copy /> Copiar link</Button>{copyFeedback && <p className="text-sm text-muted-foreground" role="status">{copyFeedback}</p>}</div> : <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); createMutation.mutate(); }}><Field label="Nome da empresa/cliente" value={form.clientName} onChange={(clientName) => setForm({ ...form, clientName })} required /><Field label="Nome do contato" value={form.contactName} onChange={(contactName) => setForm({ ...form, contactName })} required /><Field label="E-mail do contato" value={form.contactEmail} type="email" onChange={(contactEmail) => setForm({ ...form, contactEmail })} required /><Field label="Referência externa (opcional)" value={form.externalReference} onChange={(externalReference) => setForm({ ...form, externalReference })} /><Field label="CRM client ID (opcional)" value={form.crmClientId} onChange={(crmClientId) => setForm({ ...form, crmClientId })} /><div className="grid gap-2"><Label htmlFor="expiration">Validade do link</Label><select id="expiration" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.expiresInDays ?? "never"} onChange={(event) => setForm({ ...form, expiresInDays: event.target.value === "never" ? null : Number(event.target.value) as 7 | 15 | 30 })}><option value="7">7 dias</option><option value="15">15 dias</option><option value="30">30 dias</option><option value="never">Sem expiração</option></select></div>{createMutation.isError && <p role="alert" className="text-sm text-destructive">Não foi possível gerar a Jornada. Revise os dados e tente novamente.</p>}<DialogFooter><Button type="submit" disabled={createMutation.isPending}>{createMutation.isPending ? "Gerando…" : "Gerar Jornada"}</Button></DialogFooter></form>}</DialogContent></Dialog>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Link gerado</DialogTitle>
+            <DialogDescription>
+              {generatedUrl
+                ? "O link é exibido somente agora. Depois de fechar esta janela, ele não poderá ser recuperado."
+                : replacementId
+                  ? "O convite anterior será revogado quando o novo link for criado."
+                  : "Preencha os dados do contato que receberá a Jornada."}
+            </DialogDescription>
+          </DialogHeader>
+          {generatedUrl ? (
+            <div className="grid gap-3">
+              <Label htmlFor="generated-link">Link gerado</Label>
+              <Input id="generated-link" readOnly value={generatedUrl} />
+              <Button onClick={copyLink}>
+                <Copy /> Copiar link
+              </Button>
+              {copyFeedback && (
+                <p className="text-sm text-muted-foreground" role="status">
+                  {copyFeedback}
+                </p>
+              )}
+            </div>
+          ) : (
+            <form
+              className="grid gap-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                createMutation.mutate();
+              }}
+            >
+              <Field
+                label="Nome da empresa/cliente"
+                value={form.clientName}
+                onChange={(clientName) => setForm({ ...form, clientName })}
+                required
+              />
+              <Field
+                label="Nome do contato"
+                value={form.contactName}
+                onChange={(contactName) => setForm({ ...form, contactName })}
+                required
+              />
+              <Field
+                label="E-mail do contato"
+                value={form.contactEmail}
+                type="email"
+                onChange={(contactEmail) => setForm({ ...form, contactEmail })}
+                required
+              />
+              <Field
+                label="Referência externa (opcional)"
+                value={form.externalReference}
+                onChange={(externalReference) => setForm({ ...form, externalReference })}
+              />
+              <Field
+                label="CRM client ID (opcional)"
+                value={form.crmClientId}
+                onChange={(crmClientId) => setForm({ ...form, crmClientId })}
+              />
+              <div className="grid gap-2">
+                <Label htmlFor="expiration">Validade do link</Label>
+                <select
+                  id="expiration"
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  value={form.expiresInDays ?? "never"}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      expiresInDays:
+                        event.target.value === "never"
+                          ? null
+                          : (Number(event.target.value) as 7 | 15 | 30),
+                    })
+                  }
+                >
+                  <option value="7">7 dias</option>
+                  <option value="15">15 dias</option>
+                  <option value="30">30 dias</option>
+                  <option value="never">Sem expiração</option>
+                </select>
+              </div>
+              {createMutation.isError && (
+                <p role="alert" className="text-sm text-destructive">
+                  Não foi possível gerar a Jornada. Revise os dados e tente novamente.
+                </p>
+              )}
+              <DialogFooter>
+                <Button type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? "Gerando…" : "Gerar Jornada"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
 
-function Summary({ label, value }: { label: string; value: number }) { return <div className="rounded-xl border bg-background p-5"><p className="text-sm text-muted-foreground">{label}</p><p className="mt-2 font-display text-3xl font-semibold">{value}</p></div>; }
-function Field({ label, value, onChange, type = "text", required = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean }) { const id = label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-"); return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label><Input id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} /></div>; }
+function Summary({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border bg-background p-5">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="mt-2 font-display text-3xl font-semibold">{value}</p>
+    </div>
+  );
+}
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+  required = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  required?: boolean;
+}) {
+  const id = label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-");
+  return (
+    <div className="grid gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required={required}
+      />
+    </div>
+  );
+}

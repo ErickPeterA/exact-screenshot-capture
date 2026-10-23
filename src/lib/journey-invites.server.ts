@@ -46,6 +46,7 @@ export type JourneyInviteForManagement = Omit<AdminInviteRow, "status"> & {
 
 export type PublicJourneyAccess =
   | { status: "active"; state: NonNullable<Awaited<ReturnType<typeof getState>>> }
+  | { status: "needs_details" }
   | { status: "invalid" | "completed" | "revoked" | "expired" };
 
 export function hashJourneyToken(token: string) {
@@ -174,6 +175,28 @@ export async function openJourneyInvite(token: string): Promise<PublicJourneyAcc
   const blocked = blockedStatus(invite);
   if (blocked) return { status: blocked };
 
+  const { rows } = await query<{ id: string }>(
+    "SELECT id FROM journey_sessions WHERE journey_invite_id = $1",
+    [invite.id],
+  );
+  const sessionId = rows[0]?.id;
+  if (!sessionId) return { status: "needs_details" };
+
+  const state = await getState(sessionId);
+  return state ? { status: "active", state } : { status: "invalid" };
+}
+
+export async function startJourneyInvite(
+  token: string,
+  participantName: string,
+  participantCompany: string,
+): Promise<PublicJourneyAccess> {
+  const invite = await findInvite(token);
+  if (!invite) return { status: "invalid" };
+
+  const blocked = blockedStatus(invite);
+  if (blocked) return { status: blocked };
+
   const name = invite.contact_name?.trim() || invite.client_name?.trim() || "Cliente";
   const company =
     invite.client_name?.trim() || invite.external_reference?.trim() || "Empresa não informada";
@@ -181,7 +204,10 @@ export async function openJourneyInvite(token: string): Promise<PublicJourneyAcc
   const { rows } = await query<{ id: string }>(
     `WITH active_invite AS (
        UPDATE journey_invites
-          SET status = 'started', started_at = COALESCE(started_at, now())
+          SET status = 'started',
+              started_at = COALESCE(started_at, now()),
+              contact_name = $2,
+              client_name = $3
         WHERE id = $1
           AND status IN ('created', 'started')
           AND revoked_at IS NULL
@@ -195,7 +221,7 @@ export async function openJourneyInvite(token: string): Promise<PublicJourneyAcc
      ON CONFLICT (journey_invite_id) WHERE journey_invite_id IS NOT NULL
      DO UPDATE SET journey_invite_id = EXCLUDED.journey_invite_id
      RETURNING id`,
-    [invite.id, name, company, JOURNEY_VERSION],
+    [invite.id, participantName, participantCompany, JOURNEY_VERSION],
   );
 
   const sessionId = rows[0]?.id;

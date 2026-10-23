@@ -3,7 +3,12 @@ import { z } from "zod";
 
 const uuid = z.string().uuid();
 const publicToken = z.string().min(20).max(256);
-const optionalText = z.string().trim().max(160).optional().transform((value) => value || null);
+const optionalText = z
+  .string()
+  .trim()
+  .max(160)
+  .optional()
+  .transform((value) => value || null);
 const inviteInput = z.object({
   clientName: z.string().trim().min(2).max(160),
   contactName: z.string().trim().min(2).max(160),
@@ -64,6 +69,21 @@ export const openJourneyInviteFn = createServerFn({ method: "POST" })
     return openJourneyInvite(data.token);
   });
 
+export const startJourneyInviteFn = createServerFn({ method: "POST" })
+  .inputValidator((data) =>
+    z
+      .object({
+        token: publicToken,
+        name: z.string().trim().min(2).max(120),
+        company: z.string().trim().min(2).max(160),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const { startJourneyInvite } = await import("./journey-invites.server");
+    return startJourneyInvite(data.token, data.name, data.company);
+  });
+
 export const listJourneyInvitesFn = createServerFn({ method: "GET" }).handler(async () => {
   const { listJourneyInvites } = await import("./journey-invites.server");
   const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
@@ -78,9 +98,15 @@ export const getJourneyAdminSessionFn = createServerFn({ method: "GET" }).handle
 
 export const logoutJourneyAdminFn = createServerFn({ method: "POST" }).handler(async () => {
   const { deleteCookie, getCookie } = await import("@tanstack/react-start/server");
-  const { JOURNEY_ADMIN_COOKIE, revokeJourneyAdminSession } = await import("./journey-admin-auth.server");
+  const { JOURNEY_ADMIN_COOKIE, revokeJourneyAdminSession } =
+    await import("./journey-admin-auth.server");
   await revokeJourneyAdminSession(getCookie(JOURNEY_ADMIN_COOKIE));
-  deleteCookie(JOURNEY_ADMIN_COOKIE, { path: "/", httpOnly: true, sameSite: "lax", secure: process.env["NODE_ENV"] === "production" });
+  deleteCookie(JOURNEY_ADMIN_COOKIE, {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env["NODE_ENV"] === "production",
+  });
   return { ok: true };
 });
 
