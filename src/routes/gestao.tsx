@@ -93,6 +93,7 @@ function ManagementPage() {
         : createInvite({ data: { clientName: name } }),
     onSuccess: (invite) => {
       setGeneratedUrl(invite.url);
+      setNotice(invite.sync_warning);
       setNameDialogOpen(false);
       setDialogOpen(true);
       void refresh();

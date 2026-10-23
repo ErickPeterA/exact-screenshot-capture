@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { JOURNEY_VERSION } from "@/journey/config";
 
 import { query } from "./db.server";
+import { sendJourneyCreatedEvent } from "./journey-events.server";
 import { getState, logEvent, saveAnswer } from "./journey.server";
 
 export type ParticipantProfile = {
@@ -89,10 +90,20 @@ export async function createJourneyInvite(input: CreateJourneyInviteInput = {}) 
     "",
   );
 
+  let syncWarning: string | null = null;
+  try {
+    await sendJourneyCreatedEvent({ id: rows[0]!.id, expiresAt });
+  } catch {
+    // Do not include the internal URL, secret, public token, or underlying error in logs.
+    console.error("Failed to deliver journey.created event to CRM.");
+    syncWarning = "Link gerado, mas não foi possível sincronizar com o CRM.";
+  }
+
   return {
     invite_id: rows[0]!.id,
     token,
     url: `${baseUrl}/j/${encodeURIComponent(token)}`,
+    sync_warning: syncWarning,
   };
 }
 
