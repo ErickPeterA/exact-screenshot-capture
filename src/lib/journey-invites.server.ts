@@ -3,7 +3,13 @@ import { createHash, randomBytes } from "node:crypto";
 import { JOURNEY_VERSION } from "@/journey/config";
 
 import { query } from "./db.server";
-import { getState, saveAnswer } from "./journey.server";
+import { getState, logEvent, saveAnswer } from "./journey.server";
+
+export type ParticipantProfile = {
+  role: "owner" | "director" | "manager" | "professional" | "other";
+  teamSize: "solo" | "2-10" | "11-50" | "51-200" | "201+";
+  mainChallenge: string;
+};
 
 export type CreateJourneyInviteInput = {
   external_reference?: string | null;
@@ -190,6 +196,7 @@ export async function startJourneyInvite(
   token: string,
   participantName: string,
   participantCompany: string,
+  profile: ParticipantProfile,
 ): Promise<PublicJourneyAccess> {
   const invite = await findInvite(token);
   if (!invite) return { status: "invalid" };
@@ -206,8 +213,7 @@ export async function startJourneyInvite(
        UPDATE journey_invites
           SET status = 'started',
               started_at = COALESCE(started_at, now()),
-              contact_name = $2,
-              client_name = $3
+              contact_name = $2
         WHERE id = $1
           AND status IN ('created', 'started')
           AND revoked_at IS NULL
@@ -229,6 +235,8 @@ export async function startJourneyInvite(
     const current = await findInvite(token);
     return { status: current ? (blockedStatus(current) ?? "invalid") : "invalid" };
   }
+
+  await logEvent(sessionId, "participant_profile_submitted", null, profile);
 
   const state = await getState(sessionId);
   if (!state) return { status: "invalid" };

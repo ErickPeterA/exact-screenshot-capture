@@ -3,25 +3,13 @@ import { z } from "zod";
 
 const uuid = z.string().uuid();
 const publicToken = z.string().min(20).max(256);
-const optionalText = z
-  .string()
-  .trim()
-  .max(160)
-  .optional()
-  .transform((value) => value || null);
 const inviteInput = z.object({
   clientName: z.string().trim().min(2).max(160),
-  contactName: z.string().trim().min(2).max(160),
-  contactEmail: z.string().trim().email().max(254),
-  externalReference: optionalText,
-  crmClientId: optionalText,
-  expiresInDays: z.union([z.literal(7), z.literal(15), z.literal(30), z.null()]),
 });
 
-function expiresAtFromDays(days: 7 | 15 | 30 | null) {
-  if (days === null) return null;
+function inviteExpiresAt() {
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + days);
+  expiresAt.setDate(expiresAt.getDate() + 7);
   return expiresAt;
 }
 
@@ -76,12 +64,19 @@ export const startJourneyInviteFn = createServerFn({ method: "POST" })
         token: publicToken,
         name: z.string().trim().min(2).max(120),
         company: z.string().trim().min(2).max(160),
+        role: z.enum(["owner", "director", "manager", "professional", "other"]),
+        teamSize: z.enum(["solo", "2-10", "11-50", "51-200", "201+"]),
+        mainChallenge: z.string().trim().min(10).max(500),
       })
       .parse(data),
   )
   .handler(async ({ data }) => {
     const { startJourneyInvite } = await import("./journey-invites.server");
-    return startJourneyInvite(data.token, data.name, data.company);
+    return startJourneyInvite(data.token, data.name, data.company, {
+      role: data.role,
+      teamSize: data.teamSize,
+      mainChallenge: data.mainChallenge,
+    });
   });
 
 export const listJourneyInvitesFn = createServerFn({ method: "GET" }).handler(async () => {
@@ -132,11 +127,7 @@ export const createJourneyInviteFn = createServerFn({ method: "POST" })
     await requireJourneyAdminSession();
     return createJourneyInvite({
       client_name: data.clientName,
-      contact_name: data.contactName,
-      contact_email: data.contactEmail,
-      external_reference: data.externalReference,
-      crm_client_id: data.crmClientId,
-      expires_at: expiresAtFromDays(data.expiresInDays),
+      expires_at: inviteExpiresAt(),
     });
   });
 
@@ -157,11 +148,7 @@ export const regenerateJourneyInviteFn = createServerFn({ method: "POST" })
     await requireJourneyAdminSession();
     return regenerateJourneyInvite(data.inviteId, {
       client_name: data.clientName,
-      contact_name: data.contactName,
-      contact_email: data.contactEmail,
-      external_reference: data.externalReference,
-      crm_client_id: data.crmClientId,
-      expires_at: expiresAtFromDays(data.expiresInDays),
+      expires_at: inviteExpiresAt(),
     });
   });
 

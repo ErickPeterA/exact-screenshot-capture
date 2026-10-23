@@ -56,7 +56,10 @@ function ManagementPage() {
   const createInvite = useServerFn(createJourneyInviteFn);
   const revokeInvite = useServerFn(revokeJourneyInviteFn);
   const regenerateInvite = useServerFn(regenerateJourneyInviteFn);
+  const [nameDialogOpen, setNameDialogOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [clientName, setClientName] = useState("");
+  const [pendingInviteId, setPendingInviteId] = useState<string | null>(null);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -84,12 +87,13 @@ function ManagementPage() {
     onSuccess: ({ sessionId }) => window.location.assign(`/resultado/${sessionId}`),
   });
   const createMutation = useMutation({
-    mutationFn: (inviteId: string | null) =>
+    mutationFn: ({ inviteId, name }: { inviteId: string | null; name: string }) =>
       inviteId
-        ? regenerateInvite({ data: { inviteId, expiresInDays: null } })
-        : createInvite({ data: { expiresInDays: null } }),
+        ? regenerateInvite({ data: { inviteId, clientName: name } })
+        : createInvite({ data: { clientName: name } }),
     onSuccess: (invite) => {
       setGeneratedUrl(invite.url);
+      setNameDialogOpen(false);
       setDialogOpen(true);
       void refresh();
     },
@@ -126,14 +130,23 @@ function ManagementPage() {
   }
 
   const openCreate = () => {
+    setClientName("");
+    setPendingInviteId(null);
     setGeneratedUrl(null);
     setCopyFeedback(null);
-    createMutation.mutate(null);
+    setNameDialogOpen(true);
   };
-  const openReplacement = (inviteId: string) => {
+  const openReplacement = (inviteId: string, currentClientName: string | null) => {
+    setClientName(currentClientName ?? "");
+    setPendingInviteId(inviteId);
     setGeneratedUrl(null);
     setCopyFeedback(null);
-    createMutation.mutate(inviteId);
+    setNameDialogOpen(true);
+  };
+  const submitCreate = () => {
+    const name = clientName.trim();
+    if (name.length < 2) return;
+    createMutation.mutate({ inviteId: pendingInviteId, name });
   };
   const copyLink = async () => {
     if (!generatedUrl) return;
@@ -310,7 +323,7 @@ function ManagementPage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => openReplacement(invite.id)}
+                                onClick={() => openReplacement(invite.id, invite.client_name)}
                                 disabled={createMutation.isPending}
                               >
                                 <RotateCcw /> Gerar novo link
@@ -330,6 +343,45 @@ function ManagementPage() {
           )}
         </section>
       </div>
+      <Dialog open={nameDialogOpen} onOpenChange={setNameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Gerar novo link</DialogTitle>
+            <DialogDescription>
+              Informe o nome do cliente. O link será válido por 7 dias.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submitCreate();
+            }}
+          >
+            <div className="grid gap-2">
+              <Label htmlFor="client-name">Nome do Cliente</Label>
+              <Input
+                id="client-name"
+                value={clientName}
+                onChange={(event) => setClientName(event.target.value)}
+                autoFocus
+                required
+              />
+            </div>
+            {createMutation.isError && (
+              <p role="alert" className="text-sm text-destructive">
+                Não foi possível gerar o link. Tente novamente.
+              </p>
+            )}
+            <Button
+              type="submit"
+              disabled={clientName.trim().length < 2 || createMutation.isPending}
+            >
+              {createMutation.isPending ? "Gerando…" : "Confirmar e gerar link"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>

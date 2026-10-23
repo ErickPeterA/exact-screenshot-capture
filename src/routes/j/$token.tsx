@@ -81,11 +81,33 @@ function InviteDetailsForm({
 }) {
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
+  const [role, setRole] = useState<
+    "" | "owner" | "director" | "manager" | "professional" | "other"
+  >("");
+  const [teamSize, setTeamSize] = useState<"" | "solo" | "2-10" | "11-50" | "51-200" | "201+">("");
+  const [mainChallenge, setMainChallenge] = useState("");
   const startMutation = useMutation({
-    mutationFn: () => startInvite({ data: { token, name: name.trim(), company: company.trim() } }),
+    mutationFn: () => {
+      if (!role || !teamSize) throw new Error("Preencha todos os campos.");
+      return startInvite({
+        data: {
+          token,
+          name: name.trim(),
+          company: company.trim(),
+          role,
+          teamSize,
+          mainChallenge: mainChallenge.trim(),
+        },
+      });
+    },
     onSuccess: () => onStarted(),
   });
-  const valid = name.trim().length >= 2 && company.trim().length >= 2;
+  const valid =
+    name.trim().length >= 2 &&
+    company.trim().length >= 2 &&
+    Boolean(role) &&
+    Boolean(teamSize) &&
+    mainChallenge.trim().length >= 10;
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
@@ -96,9 +118,10 @@ function InviteDetailsForm({
           if (valid) startMutation.mutate();
         }}
       >
-        <h1 className="font-display text-2xl font-semibold">Antes de comeÃ§ar</h1>
+        <h1 className="font-display text-2xl font-semibold">Antes de começar</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Informe seus dados para iniciar sua Jornada.
+          Estas informações ajudam a contextualizar o diagnóstico. Em seguida, você será levado ao
+          mapa da Jornada para responder às perguntas.
         </p>
         <div className="mt-7 grid gap-5">
           <div className="grid gap-2">
@@ -119,13 +142,63 @@ function InviteDetailsForm({
               required
             />
           </div>
+          <div className="grid gap-2">
+            <Label htmlFor="invite-role">Qual é o seu papel na empresa?</Label>
+            <select
+              id="invite-role"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              value={role}
+              onChange={(event) => setRole(event.target.value as typeof role)}
+              required
+            >
+              <option value="" disabled>
+                Selecione uma opção
+              </option>
+              <option value="owner">Proprietário(a) ou sócio(a)</option>
+              <option value="director">Direção</option>
+              <option value="manager">Gestão ou liderança</option>
+              <option value="professional">Profissional da equipe</option>
+              <option value="other">Outro</option>
+            </select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="invite-team-size">Quantas pessoas trabalham na empresa?</Label>
+            <select
+              id="invite-team-size"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              value={teamSize}
+              onChange={(event) => setTeamSize(event.target.value as typeof teamSize)}
+              required
+            >
+              <option value="" disabled>
+                Selecione uma opção
+              </option>
+              <option value="solo">Somente eu</option>
+              <option value="2-10">2 a 10 pessoas</option>
+              <option value="11-50">11 a 50 pessoas</option>
+              <option value="51-200">51 a 200 pessoas</option>
+              <option value="201+">Mais de 200 pessoas</option>
+            </select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="invite-challenge">Qual é o principal desafio da empresa hoje?</Label>
+            <textarea
+              id="invite-challenge"
+              className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={mainChallenge}
+              onChange={(event) => setMainChallenge(event.target.value)}
+              placeholder="Conte brevemente o que mais precisa melhorar ou organizar."
+              maxLength={500}
+              required
+            />
+          </div>
           {startMutation.isError && (
             <p role="alert" className="text-sm text-destructive">
-              NÃ£o foi possÃ­vel iniciar esta Jornada.
+              Não foi possível iniciar esta Jornada.
             </p>
           )}
           <Button type="submit" size="lg" disabled={!valid || startMutation.isPending}>
-            {startMutation.isPending ? "Preparando sua jornada..." : "ComeÃ§ar jornada"}
+            {startMutation.isPending ? "Preparando sua jornada..." : "Começar jornada"}
           </Button>
         </div>
       </form>
