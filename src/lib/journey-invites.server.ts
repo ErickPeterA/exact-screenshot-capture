@@ -9,12 +9,9 @@ import {
   sendJourneyEvent,
 } from "./journey-events.server";
 import { getState, logEvent, saveAnswer } from "./journey.server";
+import { decryptJourneyToken, encryptJourneyToken } from "./journey-link-crypto.server";
 
-export type ParticipantProfile = {
-  role: "owner" | "director" | "manager" | "professional" | "other";
-  teamSize: "solo" | "2-10" | "11-50" | "51-200" | "201+";
-  mainChallenge: string;
-};
+export type ParticipantProfile = Record<string, never>;
 
 export type JourneyIdentification = {
   name: string;
@@ -48,6 +45,7 @@ type AdminInviteRow = {
   client_name: string | null;
   contact_name: string | null;
   contact_email: string | null;
+  contact_phone: string | null;
   external_reference: string | null;
   crm_client_id: string | null;
   created_at: string;
@@ -56,6 +54,7 @@ type AdminInviteRow = {
   revoked_at: string | null;
   expires_at: string | null;
   session_id: string | null;
+  link_available: boolean;
 };
 
 export type JourneyInviteForManagement = Omit<AdminInviteRow, "status"> & {
@@ -79,6 +78,7 @@ function logJourneyEventFailure(eventType: string, error: unknown) {
 export async function createJourneyInvite(input: CreateJourneyInviteInput = {}) {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashJourneyToken(token);
+  const tokenEncrypted = encryptJourneyToken(token);
   const expiresAt = input.expires_at ? new Date(input.expires_at) : null;
 
   if (expiresAt && Number.isNaN(expiresAt.getTime())) {
@@ -87,11 +87,12 @@ export async function createJourneyInvite(input: CreateJourneyInviteInput = {}) 
 
   const { rows } = await query<{ id: string }>(
     `INSERT INTO journey_invites
-      (token_hash, external_reference, crm_client_id, client_name, contact_name, contact_email, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+      (token_hash, token_encrypted, external_reference, crm_client_id, client_name, contact_name, contact_email, expires_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id`,
     [
       tokenHash,
+      tokenEncrypted,
       input.external_reference ?? null,
       input.crm_client_id ?? null,
       input.client_name ?? null,
@@ -143,13 +144,45 @@ export async function listJourneyInvites(): Promise<JourneyInviteForManagement[]
   const { rows } = await query<AdminInviteRow>(
     `SELECT
        invites.id, invites.status, invites.client_name, invites.contact_name, invites.contact_email,
+       invites.contact_phone,
        invites.external_reference, invites.crm_client_id, invites.created_at, invites.started_at,
-       invites.completed_at, invites.revoked_at, invites.expires_at, sessions.id AS session_id
+       invites.completed_at, invites.revoked_at, invites.expires_at, sessions.id AS session_id,
+       invites.token_encrypted IS NOT NULL AS link_available
      FROM journey_invites AS invites
      LEFT JOIN journey_sessions AS sessions ON sessions.journey_invite_id = invites.id
      ORDER BY invites.created_at DESC`,
   );
   return rows.map(toManagementInvite);
+}
+
+export async function getJourneyInviteUrl(inviteId: string) {
+  const { rows } = await query<{
+    token_encrypted: string | null;
+    status: string;
+    expires_at: string | null;
+    revoked_at: string | null;
+  }>(
+    `SELECT token_encrypted, status, expires_at, revoked_at
+       FROM journey_invites
+      WHERE id = $1`,
+    [inviteId],
+  );
+  const invite = rows[0];
+  if (!invite) throw new Error("Jornada não encontrada.");
+  if (invite.status === "completed" || invite.status === "revoked" || invite.revoked_at) {
+    throw new Error("Este link não está mais disponível.");
+  }
+  if (invite.expires_at && new Date(invite.expires_at).getTime() <= Date.now()) {
+    throw new Error("Este link expirou.");
+  }
+  if (!invite.token_encrypted) return { available: false as const };
+
+  const token = decryptJourneyToken(invite.token_encrypted);
+  const baseUrl = (process.env["PUBLIC_APP_URL"] ?? "https://jornada.vgresultados.com.br").replace(
+    /\/$/,
+    "",
+  );
+  return { available: true as const, url: `${baseUrl}/j/${encodeURIComponent(token)}` };
 }
 
 export async function revokeJourneyInvite(inviteId: string) {
@@ -171,8 +204,7 @@ export async function regenerateJourneyInvite(inviteId: string, input: CreateJou
     `UPDATE journey_invites
         SET status = 'revoked', revoked_at = now()
       WHERE id = $1
-        AND status IN ('created', 'started')
-        AND revoked_at IS NULL
+        AND status <> 'completed'
       RETURNING id`,
     [inviteId],
   );
@@ -230,31 +262,43 @@ export async function startJourneyInvite(
   const blocked = blockedStatus(invite);
   if (blocked) return { status: blocked };
 
-  const name = invite.contact_name?.trim() || invite.client_name?.trim() || "Cliente";
-  const company =
-    invite.client_name?.trim() || invite.external_reference?.trim() || "Empresa não informada";
-
-  const { rows } = await query<{ id: string; journey_id: string }>(
-    `WITH active_invite AS (
-       UPDATE journey_invites
-          SET status = 'started',
-              started_at = COALESCE(started_at, now()),
-              contact_name = $2,
-              contact_email = $4
+  const { rows } = await query<{ id: string; journey_id: string; started_now: boolean }>(
+    `WITH eligible AS MATERIALIZED (
+       SELECT id, status = 'created' AS started_now
+         FROM journey_invites
         WHERE id = $1
-          AND status = 'created'
+          AND status IN ('created', 'started')
           AND revoked_at IS NULL
           AND (expires_at IS NULL OR expires_at > now())
-       RETURNING id
+        FOR UPDATE
+     ), active_invite AS (
+       UPDATE journey_invites AS invite
+          SET status = 'started',
+              started_at = COALESCE(invite.started_at, now()),
+              contact_name = $2,
+              client_name = $3,
+              contact_email = $4,
+              contact_phone = $5
+         FROM eligible
+        WHERE invite.id = eligible.id
+       RETURNING invite.id, eligible.started_now
      )
      INSERT INTO journey_sessions
        (name, company, journey_version, status, current_node, journey_invite_id)
-     SELECT $2, $3, $5, 'started', 'START-01', id
+     SELECT $2, $3, $6, 'started', 'START-01', id
        FROM active_invite
      ON CONFLICT (journey_invite_id) WHERE journey_invite_id IS NOT NULL
-     DO UPDATE SET journey_invite_id = EXCLUDED.journey_invite_id
-     RETURNING id, journey_invite_id AS journey_id`,
-    [invite.id, identification.name, identification.company, identification.email, JOURNEY_VERSION],
+     DO UPDATE SET name = EXCLUDED.name, company = EXCLUDED.company
+     RETURNING id, journey_invite_id AS journey_id,
+       (SELECT started_now FROM active_invite) AS started_now`,
+    [
+      invite.id,
+      identification.name,
+      identification.company,
+      identification.email,
+      identification.phone,
+      JOURNEY_VERSION,
+    ],
   );
 
   const sessionId = rows[0]?.id;
@@ -264,25 +308,27 @@ export async function startJourneyInvite(
   }
 
   const journeyId = rows[0]!.journey_id;
-  try {
-    await sendJourneyEvent({ event_type: "journey.started", journey: { id: journeyId } });
-  } catch (error) {
-    logJourneyEventFailure("journey.started", error);
-  }
+  if (rows[0]!.started_now) {
+    try {
+      await sendJourneyEvent({ event_type: "journey.started", journey: { id: journeyId } });
+    } catch (error) {
+      logJourneyEventFailure("journey.started", error);
+    }
 
-  await logEvent(sessionId, "participant_profile_submitted", null, {
-    ...identification,
-    ...profile,
-  });
-
-  try {
-    await sendJourneyEvent({
-      event_type: "journey.identified",
-      journey: { id: journeyId },
-      identification,
+    await logEvent(sessionId, "participant_profile_submitted", null, {
+      ...identification,
+      ...profile,
     });
-  } catch (error) {
-    logJourneyEventFailure("journey.identified", error);
+
+    try {
+      await sendJourneyEvent({
+        event_type: "journey.identified",
+        journey: { id: journeyId },
+        identification,
+      });
+    } catch (error) {
+      logJourneyEventFailure("journey.identified", error);
+    }
   }
 
   const state = await getState(sessionId);

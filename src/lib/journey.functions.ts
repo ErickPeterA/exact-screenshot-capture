@@ -66,9 +66,6 @@ export const startJourneyInviteFn = createServerFn({ method: "POST" })
         company: z.string().trim().min(2).max(160),
         email: z.string().trim().email().max(254),
         phone: z.string().trim().min(7).max(30),
-        role: z.enum(["owner", "director", "manager", "professional", "other"]),
-        teamSize: z.enum(["solo", "2-10", "11-50", "51-200", "201+"]),
-        mainChallenge: z.string().trim().min(10).max(500),
       })
       .parse(data),
   )
@@ -77,11 +74,7 @@ export const startJourneyInviteFn = createServerFn({ method: "POST" })
     return startJourneyInvite(
       data.token,
       { name: data.name, company: data.company, email: data.email, phone: data.phone },
-      {
-        role: data.role,
-        teamSize: data.teamSize,
-        mainChallenge: data.mainChallenge,
-      },
+      {},
     );
   });
 
@@ -91,6 +84,15 @@ export const listJourneyInvitesFn = createServerFn({ method: "GET" }).handler(as
   await requireJourneyAdminSession();
   return listJourneyInvites();
 });
+
+export const getJourneyInviteUrlFn = createServerFn({ method: "POST" })
+  .inputValidator((data) => z.object({ inviteId: uuid }).parse(data))
+  .handler(async ({ data }) => {
+    const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
+    const { getJourneyInviteUrl } = await import("./journey-invites.server");
+    await requireJourneyAdminSession();
+    return getJourneyInviteUrl(data.inviteId);
+  });
 
 export const getJourneyAdminSessionFn = createServerFn({ method: "GET" }).handler(async () => {
   const { getJourneyAdminSession } = await import("./journey-admin-auth.server");

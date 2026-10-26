@@ -20,6 +20,7 @@ import {
   createJourneyInviteFn,
   getJourneyAdminSessionFn,
   getJourneyAdminResultPathFn,
+  getJourneyInviteUrlFn,
   listJourneyInvitesFn,
   logoutJourneyAdminFn,
   regenerateJourneyInviteFn,
@@ -54,6 +55,7 @@ function ManagementPage() {
   const getAdminResultPath = useServerFn(getJourneyAdminResultPathFn);
   const logout = useServerFn(logoutJourneyAdminFn);
   const createInvite = useServerFn(createJourneyInviteFn);
+  const getInviteUrl = useServerFn(getJourneyInviteUrlFn);
   const revokeInvite = useServerFn(revokeJourneyInviteFn);
   const regenerateInvite = useServerFn(regenerateJourneyInviteFn);
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
@@ -107,6 +109,23 @@ function ManagementPage() {
     },
     onError: () =>
       setNotice("Não foi possível revogar esta Jornada. Atualize a lista e tente novamente."),
+  });
+  const recoverLinkMutation = useMutation({
+    mutationFn: async ({ inviteId, open }: { inviteId: string; open: boolean }) => {
+      const result = await getInviteUrl({ data: { inviteId } });
+      if (!result.available) return { copied: false as const, open };
+      if (open) {
+        window.location.assign(result.url);
+        return { copied: false as const, open };
+      }
+      await navigator.clipboard.writeText(result.url);
+      return { copied: true as const, open };
+    },
+    onSuccess: (result) => {
+      if (result.copied) setNotice("Link copiado.");
+      else if (!result.open) setNotice("Link antigo indisponível.");
+    },
+    onError: () => setNotice("Não foi possível recuperar este link."),
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["management-invites"] });
 
@@ -300,7 +319,31 @@ function ManagementPage() {
                                 onClick={() => openResultMutation.mutate(invite.session_id!)}
                                 disabled={openResultMutation.isPending}
                               >
-                                <ExternalLink /> Ver resultado
+                                <ExternalLink /> Ver resposta
+                              </Button>
+                            )}
+                            {actionable && invite.link_available && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  recoverLinkMutation.mutate({ inviteId: invite.id, open: false })
+                                }
+                                disabled={recoverLinkMutation.isPending}
+                              >
+                                <Copy /> Copiar link
+                              </Button>
+                            )}
+                            {invite.status === "started" && invite.link_available && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  recoverLinkMutation.mutate({ inviteId: invite.id, open: true })
+                                }
+                                disabled={recoverLinkMutation.isPending}
+                              >
+                                <ExternalLink /> Acompanhar
                               </Button>
                             )}
                             {actionable && (
@@ -320,7 +363,7 @@ function ManagementPage() {
                                 Revogar
                               </Button>
                             )}
-                            {invite.status !== "completed" && invite.status !== "revoked" && (
+                            {(invite.status === "expired" || invite.status === "revoked") && (
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -330,9 +373,11 @@ function ManagementPage() {
                                 <RotateCcw /> Gerar novo link
                               </Button>
                             )}
-                            <span className="basis-full text-xs text-muted-foreground">
-                              Link não armazenado
-                            </span>
+                            {actionable && !invite.link_available && (
+                              <span className="basis-full text-xs text-muted-foreground">
+                                Link antigo indisponível
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -388,8 +433,7 @@ function ManagementPage() {
           <DialogHeader>
             <DialogTitle>Link gerado</DialogTitle>
             <DialogDescription>
-              O link é exibido somente agora. Depois de fechar esta janela, ele não poderá ser
-              recuperado.
+              Este link poderá ser copiado novamente na lista enquanto estiver válido.
             </DialogDescription>
           </DialogHeader>
           {generatedUrl && (

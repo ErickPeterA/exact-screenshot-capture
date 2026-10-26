@@ -83,26 +83,19 @@ function InviteDetailsForm({
   const [company, setCompany] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<
-    "" | "owner" | "director" | "manager" | "professional" | "other"
-  >("");
-  const [teamSize, setTeamSize] = useState<"" | "solo" | "2-10" | "11-50" | "51-200" | "201+">("");
-  const [mainChallenge, setMainChallenge] = useState("");
   const startMutation = useMutation({
-    mutationFn: () => {
-      if (!role || !teamSize) throw new Error("Preencha todos os campos.");
-      return startInvite({
+    mutationFn: async () => {
+      const result = await startInvite({
         data: {
           token,
           name: name.trim(),
           company: company.trim(),
           email: email.trim(),
           phone: phone.trim(),
-          role,
-          teamSize,
-          mainChallenge: mainChallenge.trim(),
         },
       });
+      if (result.status !== "active") throw new Error("Journey could not be started.");
+      return result;
     },
     onSuccess: () => onStarted(),
   });
@@ -110,10 +103,7 @@ function InviteDetailsForm({
     name.trim().length >= 2 &&
     company.trim().length >= 2 &&
     email.includes("@") &&
-    phone.trim().length >= 7 &&
-    Boolean(role) &&
-    Boolean(teamSize) &&
-    mainChallenge.trim().length >= 10;
+    phone.trim().length >= 7;
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
@@ -168,56 +158,6 @@ function InviteDetailsForm({
               onChange={(event) => setPhone(event.target.value)}
               autoComplete="tel"
               placeholder="(00) 00000-0000"
-              required
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="invite-role">Qual é o seu papel na empresa?</Label>
-            <select
-              id="invite-role"
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              value={role}
-              onChange={(event) => setRole(event.target.value as typeof role)}
-              required
-            >
-              <option value="" disabled>
-                Selecione uma opção
-              </option>
-              <option value="owner">Proprietário(a) ou sócio(a)</option>
-              <option value="director">Direção</option>
-              <option value="manager">Gestão ou liderança</option>
-              <option value="professional">Profissional da equipe</option>
-              <option value="other">Outro</option>
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="invite-team-size">Quantas pessoas trabalham na empresa?</Label>
-            <select
-              id="invite-team-size"
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              value={teamSize}
-              onChange={(event) => setTeamSize(event.target.value as typeof teamSize)}
-              required
-            >
-              <option value="" disabled>
-                Selecione uma opção
-              </option>
-              <option value="solo">Somente eu</option>
-              <option value="2-10">2 a 10 pessoas</option>
-              <option value="11-50">11 a 50 pessoas</option>
-              <option value="51-200">51 a 200 pessoas</option>
-              <option value="201+">Mais de 200 pessoas</option>
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="invite-challenge">Qual é o principal desafio da empresa hoje?</Label>
-            <textarea
-              id="invite-challenge"
-              className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={mainChallenge}
-              onChange={(event) => setMainChallenge(event.target.value)}
-              placeholder="Conte brevemente o que mais precisa melhorar ou organizar."
-              maxLength={500}
               required
             />
           </div>
