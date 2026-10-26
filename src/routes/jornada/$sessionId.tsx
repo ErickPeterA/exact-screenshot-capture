@@ -14,6 +14,7 @@ import {
 } from "@/components/journey/DiscoveryLayer";
 import { NODE_BY_CODE, ORDERED_NODES, RESULT_NODE, TERRITORY_BY_CODE } from "@/journey/nodes";
 import { SERVICE_BY_CODE } from "@/journey/services";
+import { calculateJourneyProgress } from "@/journey/engine";
 import { answerQuestionFn, getJourneyStateFn, trackEventFn } from "@/lib/journey.functions";
 
 export const Route = createFileRoute("/jornada/$sessionId")({
@@ -149,8 +150,7 @@ export function JourneyExperience({
   }, [clearMovementTimers]);
 
   const mutation = useMutation({
-    mutationFn: (vars: { nodeCode: string; optionCode: string }) =>
-      answerQuestion(vars),
+    mutationFn: (vars: { nodeCode: string; optionCode: string }) => answerQuestion(vars),
     onSuccess: (next, vars) => {
       setOverride(null);
       const targetCode = next?.currentNode ?? RESULT_NODE;
@@ -239,7 +239,7 @@ export function JourneyExperience({
   }
 
   const totalAnswered = current.answers.length;
-  const progress = Math.min(95, Math.round((totalAnswered / 28) * 100));
+  const progress = calculateJourneyProgress(totalAnswered, Boolean(current.completed));
 
   return (
     <main className="flex h-svh flex-col overflow-hidden">

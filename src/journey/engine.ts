@@ -45,6 +45,12 @@ export interface PathState {
   completed: boolean;
 }
 
+/** Mesma fonte de verdade usada pela UI e pelos eventos enviados ao CRM. */
+export function calculateJourneyProgress(answeredCount: number, completed = false) {
+  if (completed) return 100;
+  return Math.min(95, Math.round((answeredCount / 28) * 100));
+}
+
 /** Percorre a máquina de estados a partir das respostas registradas. */
 export function resolvePath(answers: RawAnswer[]): PathState {
   const byNode = new Map(answers.map((a) => [a.nodeCode, a]));
@@ -63,9 +69,7 @@ export function resolvePath(answers: RawAnswer[]): PathState {
     if (!answer) {
       return {
         validAnswers,
-        invalidatedNodes: answers
-          .map((a) => a.nodeCode)
-          .filter((code) => !used.has(code)),
+        invalidatedNodes: answers.map((a) => a.nodeCode).filter((code) => !used.has(code)),
         path,
         currentNode: cursor,
         completed: false,
@@ -75,9 +79,7 @@ export function resolvePath(answers: RawAnswer[]): PathState {
     if (!option) {
       return {
         validAnswers,
-        invalidatedNodes: answers
-          .map((a) => a.nodeCode)
-          .filter((code) => !used.has(code)),
+        invalidatedNodes: answers.map((a) => a.nodeCode).filter((code) => !used.has(code)),
         path,
         currentNode: cursor,
         completed: false,
@@ -192,13 +194,9 @@ export function diagnosticTrigger(
     reasons.push("Baixa clareza sobre problemas e prioridades atuais (START-03).");
   }
   if (uncertaintyRate >= DIAGNOSTIC_TRIGGERS.uncertaintyRateThreshold) {
-    reasons.push(
-      `Taxa de incerteza de ${Math.round(uncertaintyRate * 100)}% nas respostas.`,
-    );
+    reasons.push(`Taxa de incerteza de ${Math.round(uncertaintyRate * 100)}% nas respostas.`);
   }
-  const needingAttention = dimensionScores.filter(
-    (d) => d.score !== null && d.score < 60,
-  );
+  const needingAttention = dimensionScores.filter((d) => d.score !== null && d.score < 60);
   if (needingAttention.length >= DIAGNOSTIC_TRIGGERS.minDimensionsNeedingAttention) {
     reasons.push(
       `${needingAttention.length} verticais em "Requer atenção" ou "Requer prioridade".`,
@@ -495,8 +493,7 @@ export function computeResult(rawAnswers: RawAnswer[]): JourneyResult {
 
   const serviceScores = scoreServices(validAnswers);
   const dimensionScores = scoreMaturity(validAnswers);
-  const { count: uncertaintyCount, rate: uncertaintyRate } =
-    calculateUncertainty(validAnswers);
+  const { count: uncertaintyCount, rate: uncertaintyRate } = calculateUncertainty(validAnswers);
 
   const ctx: RuleContext = {
     scores: { ...serviceScores },
@@ -535,10 +532,7 @@ export function computeResult(rawAnswers: RawAnswer[]): JourneyResult {
   const prioritySet = new Set(priorityCodes.map(([code]) => code));
 
   const opportunityCodes = ranked
-    .filter(
-      ([code, score]) =>
-        !prioritySet.has(code) && score >= LIMITS.opportunityThreshold,
-    )
+    .filter(([code, score]) => !prioritySet.has(code) && score >= LIMITS.opportunityThreshold)
     .slice(0, LIMITS.maxOpportunities);
 
   const priorities = priorityCodes
@@ -563,9 +557,7 @@ export function computeResult(rawAnswers: RawAnswer[]): JourneyResult {
     }));
 
   const investigationAreas = diagnostic.triggered
-    ? dimensionScores
-        .filter((d) => d.score !== null && d.score < 60)
-        .map((d) => d.name)
+    ? dimensionScores.filter((d) => d.score !== null && d.score < 60).map((d) => d.name)
     : [];
 
   const commercialSummary = priorities.map((p) => ({
@@ -595,16 +587,10 @@ export function computeResult(rawAnswers: RawAnswer[]): JourneyResult {
 /** Progresso por território, para a camada visual. */
 export function territoryProgress(path: string[], currentNode: string | null) {
   const visited = new Set(path.map((code) => NODE_BY_CODE[code]?.territory));
-  const currentTerritory = currentNode
-    ? NODE_BY_CODE[currentNode]?.territory
-    : "RESULT";
+  const currentTerritory = currentNode ? NODE_BY_CODE[currentNode]?.territory : "RESULT";
   return TERRITORIES.map((t) => {
     const status =
-      t.code === currentTerritory
-        ? "current"
-        : visited.has(t.code)
-          ? "done"
-          : "pending";
+      t.code === currentTerritory ? "current" : visited.has(t.code) ? "done" : "pending";
     return { ...t, status };
   });
 }

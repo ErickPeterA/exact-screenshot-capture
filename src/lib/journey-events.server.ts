@@ -18,6 +18,18 @@ type JourneyEvent =
         email: string;
         phone: string;
       };
+    }
+  | {
+      event_type: "journey.progress";
+      journey: { id: string; progress: number };
+    }
+  | {
+      event_type: "journey.completed";
+      journey: { id: string; progress: 100 };
+      diagnostic: {
+        summary: Record<string, unknown>;
+        result_reference: string;
+      };
     };
 
 export class JourneyEventHttpError extends Error {
