@@ -3,6 +3,7 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { query } from "./lib/db.server";
+import { safeJourneyAdminNext } from "./lib/journey-admin-next";
 import {
   createJourneyAdminSession,
   exchangeCrmSsoCode,
@@ -81,10 +82,11 @@ export default {
 async function handleSsoCallback(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code") ?? "";
-  const next = safeJourneyAdminNext(url.searchParams.get("next"));
+  const requestedNext = url.searchParams.get("next");
   try {
     const user = await exchangeCrmSsoCode(code);
     const session = await createJourneyAdminSession(user);
+    const next = safeJourneyAdminNext(requestedNext);
     // Keep this as a plain HTTP redirect. This callback is handled before
     // TanStack Start, so throwing TanStack's redirect Response would be
     // caught by the error boundary. A relative Location also prevents a
@@ -100,26 +102,6 @@ async function handleSsoCallback(request: Request) {
       status: 401,
       headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
     });
-  }
-}
-
-export function safeJourneyAdminNext(value: string | null): string {
-  const hasControlCharacter = value
-    ? Array.from(value).some((character) => {
-        const code = character.charCodeAt(0);
-        return code <= 31 || code === 127;
-      })
-    : false;
-  if (!value || value.includes("\\") || hasControlCharacter) return "/gestao";
-  if (value.includes("?") || value.includes("#")) return "/gestao";
-  try {
-    if (decodeURIComponent(value) !== value) return "/gestao";
-    const parsed = new URL(value, "http://journey.internal");
-    if (parsed.origin !== "http://journey.internal" || parsed.pathname !== value) return "/gestao";
-    if (value !== "/gestao" && !value.startsWith("/gestao/")) return "/gestao";
-    return value;
-  } catch {
-    return "/gestao";
   }
 }
 

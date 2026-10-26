@@ -6,7 +6,7 @@ import { ResultReport } from "@/components/result/ResultReport";
 import { Button } from "@/components/ui/button";
 import { getJourneyAdminResultFn } from "@/lib/journey.functions";
 
-export const Route = createFileRoute("/gestao/resultados/$sessionId")({
+export const Route = createFileRoute("/gestao_/resultados/$sessionId")({
   head: () => ({ meta: [{ title: "Resultado da Jornada | VG Gestão de Resultados" }] }),
   component: AdminResultPage,
 });
@@ -25,9 +25,9 @@ function AdminResultPage() {
   if (query.isError) {
     return <AdminState text="Acesso não autorizado. Acesse a Jornada através do CRM." />;
   }
-  if (!query.data) return <AdminState text="Resultado não encontrado." />;
+  if (!query.data) return <AdminState text="Jornada não encontrada." />;
   if (!query.data.completed || !query.data.result) {
-    return <AdminState text="Esta Jornada ainda não possui um resultado concluído." />;
+    return <AdminState text="Esta Jornada ainda não possui resultado concluído." />;
   }
 
   return (
