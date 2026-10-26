@@ -4,6 +4,7 @@ import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { query } from "./lib/db.server";
 import { safeJourneyAdminNext } from "./lib/journey-admin-next";
+import { startJourneyEventOutboxWorker } from "./lib/journey-events.server";
 import {
   createJourneyAdminSession,
   exchangeCrmSsoCode,
@@ -15,6 +16,8 @@ type ServerEntry = {
 };
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
+
+startJourneyEventOutboxWorker();
 
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {

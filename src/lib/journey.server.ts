@@ -9,7 +9,7 @@ import {
 import { NODE_BY_CODE } from "@/journey/nodes";
 
 import { query } from "./db.server";
-import { JourneyEventHttpError, sendJourneyEvent } from "./journey-events.server";
+import { enqueueJourneyEvent } from "./journey-events.server";
 
 type Session = {
   id: string;
@@ -51,11 +51,6 @@ export async function logEvent(
     "INSERT INTO analytics_events (session_id,event_name,node_code,metadata) VALUES ($1,$2,$3,$4::jsonb)",
     [sessionId, eventName, nodeCode ?? null, JSON.stringify(metadata)],
   );
-}
-
-function logJourneyEventFailure(eventType: string, error: unknown) {
-  const status = error instanceof JourneyEventHttpError ? ` HTTP ${error.status}.` : "";
-  console.error(`Failed to deliver ${eventType} event to CRM.${status}`);
 }
 
 export async function createSession(name: string, company: string) {
@@ -215,11 +210,10 @@ async function emitProgressIfIncreased(
 ) {
   if (progress <= previousProgress || progress <= (await lastEmittedProgress(sessionId))) return;
   await logEvent(sessionId, "journey_progress_emitted", null, { progress });
-  try {
-    await sendJourneyEvent({ event_type: "journey.progress", journey: { id: inviteId, progress } });
-  } catch (error) {
-    logJourneyEventFailure("journey.progress", error);
-  }
+  await enqueueJourneyEvent({
+    event_type: "journey.progress",
+    journey: { id: inviteId, progress },
+  });
 }
 
 export async function saveAnswer(sessionId: string, nodeCode: string, optionCode: string) {
@@ -283,15 +277,11 @@ export async function saveAnswer(sessionId: string, nodeCode: string, optionCode
 
   await logEvent(sessionId, "question_answered", nodeCode, { optionCode });
   if (completedInviteId && snapshot) {
-    try {
-      await sendJourneyEvent({
-        event_type: "journey.completed",
-        journey: { id: completedInviteId, progress: 100 },
-        diagnostic: { summary: diagnosticSummary(snapshot), result_reference: sessionId },
-      });
-    } catch (error) {
-      logJourneyEventFailure("journey.completed", error);
-    }
+    await enqueueJourneyEvent({
+      event_type: "journey.completed",
+      journey: { id: completedInviteId, progress: 100 },
+      diagnostic: { summary: diagnosticSummary(snapshot), result_reference: sessionId },
+    });
   } else if (sessionBefore.journey_invite_id && !path.completed) {
     const progress = calculateJourneyProgress(path.validAnswers.length, false);
     await emitProgressIfIncreased(

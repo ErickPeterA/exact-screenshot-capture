@@ -3,11 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { JOURNEY_VERSION } from "@/journey/config";
 
 import { query } from "./db.server";
-import {
-  JourneyEventHttpError,
-  sendJourneyCreatedEvent,
-  sendJourneyEvent,
-} from "./journey-events.server";
+import { enqueueJourneyCreatedEvent, enqueueJourneyEvent } from "./journey-events.server";
 import { getState, logEvent, saveAnswer } from "./journey.server";
 import { decryptJourneyToken, encryptJourneyToken } from "./journey-link-crypto.server";
 
@@ -70,11 +66,6 @@ export function hashJourneyToken(token: string) {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
-function logJourneyEventFailure(eventType: string, error: unknown) {
-  const status = error instanceof JourneyEventHttpError ? ` HTTP ${error.status}.` : "";
-  console.error(`Failed to deliver ${eventType} event to CRM.${status}`);
-}
-
 export async function createJourneyInvite(input: CreateJourneyInviteInput = {}) {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashJourneyToken(token);
@@ -107,14 +98,10 @@ export async function createJourneyInvite(input: CreateJourneyInviteInput = {}) 
     "",
   );
 
-  let syncWarning: string | null = null;
-  try {
-    await sendJourneyCreatedEvent(rows[0]!.id, expiresAt);
-  } catch (error) {
-    // Do not include the internal URL, secret, public token, or underlying error in logs.
-    logJourneyEventFailure("journey.created", error);
-    syncWarning = "Link gerado, mas não foi possível sincronizar com o CRM.";
-  }
+  const delivery = await enqueueJourneyCreatedEvent(rows[0]!.id, expiresAt);
+  const syncWarning = delivery.delivered
+    ? null
+    : "Link gerado, mas não foi possível sincronizar com o CRM.";
 
   return {
     invite_id: rows[0]!.id,
@@ -309,26 +296,18 @@ export async function startJourneyInvite(
 
   const journeyId = rows[0]!.journey_id;
   if (rows[0]!.started_now) {
-    try {
-      await sendJourneyEvent({ event_type: "journey.started", journey: { id: journeyId } });
-    } catch (error) {
-      logJourneyEventFailure("journey.started", error);
-    }
+    await enqueueJourneyEvent({ event_type: "journey.started", journey: { id: journeyId } });
 
     await logEvent(sessionId, "participant_profile_submitted", null, {
       ...identification,
       ...profile,
     });
 
-    try {
-      await sendJourneyEvent({
-        event_type: "journey.identified",
-        journey: { id: journeyId },
-        identification,
-      });
-    } catch (error) {
-      logJourneyEventFailure("journey.identified", error);
-    }
+    await enqueueJourneyEvent({
+      event_type: "journey.identified",
+      journey: { id: journeyId },
+      identification,
+    });
   }
 
   const state = await getState(sessionId);
