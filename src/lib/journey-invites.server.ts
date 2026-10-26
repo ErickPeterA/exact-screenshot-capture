@@ -3,7 +3,11 @@ import { createHash, randomBytes } from "node:crypto";
 import { JOURNEY_VERSION } from "@/journey/config";
 
 import { query } from "./db.server";
-import { sendJourneyCreatedEvent, sendJourneyEvent } from "./journey-events.server";
+import {
+  JourneyEventHttpError,
+  sendJourneyCreatedEvent,
+  sendJourneyEvent,
+} from "./journey-events.server";
 import { getState, logEvent, saveAnswer } from "./journey.server";
 
 export type ParticipantProfile = {
@@ -67,6 +71,11 @@ export function hashJourneyToken(token: string) {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
+function logJourneyEventFailure(eventType: string, error: unknown) {
+  const status = error instanceof JourneyEventHttpError ? ` HTTP ${error.status}.` : "";
+  console.error(`Failed to deliver ${eventType} event to CRM.${status}`);
+}
+
 export async function createJourneyInvite(input: CreateJourneyInviteInput = {}) {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashJourneyToken(token);
@@ -100,9 +109,9 @@ export async function createJourneyInvite(input: CreateJourneyInviteInput = {}) 
   let syncWarning: string | null = null;
   try {
     await sendJourneyCreatedEvent(rows[0]!.id, expiresAt);
-  } catch {
+  } catch (error) {
     // Do not include the internal URL, secret, public token, or underlying error in logs.
-    console.error("Failed to deliver journey.created event to CRM.");
+    logJourneyEventFailure("journey.created", error);
     syncWarning = "Link gerado, mas não foi possível sincronizar com o CRM.";
   }
 
@@ -257,8 +266,8 @@ export async function startJourneyInvite(
   const journeyId = rows[0]!.journey_id;
   try {
     await sendJourneyEvent({ event_type: "journey.started", journey: { id: journeyId } });
-  } catch {
-    console.error("Failed to deliver journey.started event to CRM.");
+  } catch (error) {
+    logJourneyEventFailure("journey.started", error);
   }
 
   await logEvent(sessionId, "participant_profile_submitted", null, {
@@ -272,8 +281,8 @@ export async function startJourneyInvite(
       journey: { id: journeyId },
       identification,
     });
-  } catch {
-    console.error("Failed to deliver journey.identified event to CRM.");
+  } catch (error) {
+    logJourneyEventFailure("journey.identified", error);
   }
 
   const state = await getState(sessionId);

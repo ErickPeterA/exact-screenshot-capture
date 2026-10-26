@@ -20,6 +20,13 @@ type JourneyEvent =
       };
     };
 
+export class JourneyEventHttpError extends Error {
+  constructor(public readonly status: number) {
+    super(`CRM journey event request failed with HTTP ${status}.`);
+    this.name = "JourneyEventHttpError";
+  }
+}
+
 export async function sendJourneyEvent(event: JourneyEvent) {
   const baseUrl = process.env["CRM_INTERNAL_URL"]?.replace(/\/$/, "");
   const secret = process.env["JOURNEY_EVENTS_SECRET"];
@@ -39,7 +46,7 @@ export async function sendJourneyEvent(event: JourneyEvent) {
     signal: AbortSignal.timeout(10_000),
   });
 
-  if (!response.ok) throw new Error("CRM rejected journey event.");
+  if (!response.ok) throw new JourneyEventHttpError(response.status);
 }
 
 export function sendJourneyCreatedEvent(id: string, expiresAt: Date | null) {

@@ -19,8 +19,6 @@ export const startJourneyFn = createServerFn({ method: "POST" })
       .object({
         name: z.string().trim().min(2).max(120),
         company: z.string().trim().min(2).max(160),
-        email: z.string().trim().email().max(254),
-        phone: z.string().trim().min(7).max(30),
       })
       .parse(data),
   )
@@ -66,6 +64,8 @@ export const startJourneyInviteFn = createServerFn({ method: "POST" })
         token: publicToken,
         name: z.string().trim().min(2).max(120),
         company: z.string().trim().min(2).max(160),
+        email: z.string().trim().email().max(254),
+        phone: z.string().trim().min(7).max(30),
         role: z.enum(["owner", "director", "manager", "professional", "other"]),
         teamSize: z.enum(["solo", "2-10", "11-50", "51-200", "201+"]),
         mainChallenge: z.string().trim().min(10).max(500),
