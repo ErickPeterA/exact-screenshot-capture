@@ -113,18 +113,13 @@ export const logoutJourneyAdminFn = createServerFn({ method: "POST" }).handler(a
   return { ok: true };
 });
 
-export const getJourneyAdminResultPathFn = createServerFn({ method: "POST" })
+export const getJourneyAdminResultFn = createServerFn({ method: "POST" })
   .inputValidator((data) => z.object({ sessionId: uuid }).parse(data))
   .handler(async ({ data }) => {
     const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
-    const { query } = await import("./db.server");
+    const { getPersistedResult } = await import("./journey.server");
     await requireJourneyAdminSession();
-    const { rows } = await query<{ id: string }>(
-      "SELECT id FROM journey_sessions WHERE id = $1 AND journey_invite_id IS NOT NULL",
-      [data.sessionId],
-    );
-    if (!rows[0]) throw new Error("Resultado não encontrado.");
-    return { sessionId: rows[0].id };
+    return getPersistedResult(data.sessionId);
   });
 
 export const createJourneyInviteFn = createServerFn({ method: "POST" })

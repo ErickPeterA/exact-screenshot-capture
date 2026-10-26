@@ -146,6 +146,42 @@ async function loadResultSnapshot(sessionId: string) {
   return rows[0] ?? null;
 }
 
+function resultFromSnapshot(snapshot: StoredSnapshot): JourneyResult {
+  const extra = snapshot.extra;
+  return {
+    engineVersion: snapshot.engine_version,
+    dimensionScores: snapshot.dimension_scores,
+    serviceScores: extra.rawServiceScores,
+    finalScores: snapshot.service_scores,
+    priorities: snapshot.priorities,
+    opportunities: snapshot.opportunities,
+    structuredPoints: snapshot.structured_points,
+    uncertaintyCount: extra.uncertaintyCount,
+    uncertaintyRate: Number(snapshot.uncertainty_rate),
+    diagnosticMode: extra.diagnosticMode,
+    diagnosticReasons: extra.diagnosticReasons,
+    investigationAreas: extra.investigationAreas,
+    ruleLogs: extra.ruleLogs,
+    commercialSummary: extra.commercialSummary,
+  };
+}
+
+export async function getPersistedResult(sessionId: string) {
+  const session = await loadSession(sessionId);
+  if (!session) return null;
+  const snapshot = await loadResultSnapshot(sessionId);
+  return {
+    session: {
+      id: session.id,
+      name: session.name,
+      company: session.company,
+      journeyVersion: session.journey_version,
+    },
+    completed: Boolean(snapshot),
+    result: snapshot ? resultFromSnapshot(snapshot) : null,
+  };
+}
+
 function diagnosticSummary(snapshot: StoredSnapshot): Record<string, unknown> {
   return {
     engineVersion: snapshot.engine_version,
@@ -295,7 +331,6 @@ export async function buildResult(sessionId: string) {
     await query("UPDATE journey_sessions SET status='completed',completed_at=now() WHERE id=$1", [
       sessionId,
     ]);
-  const extra = snapshot.extra;
   return {
     session: {
       id: session.id,
@@ -305,22 +340,7 @@ export async function buildResult(sessionId: string) {
     },
     completed: true,
     isInvited: Boolean(session.journey_invite_id),
-    result: {
-      engineVersion: snapshot.engine_version,
-      dimensionScores: snapshot.dimension_scores,
-      serviceScores: extra.rawServiceScores,
-      finalScores: snapshot.service_scores,
-      priorities: snapshot.priorities,
-      opportunities: snapshot.opportunities,
-      structuredPoints: snapshot.structured_points,
-      uncertaintyCount: extra.uncertaintyCount,
-      uncertaintyRate: Number(snapshot.uncertainty_rate),
-      diagnosticMode: extra.diagnosticMode,
-      diagnosticReasons: extra.diagnosticReasons,
-      investigationAreas: extra.investigationAreas,
-      ruleLogs: extra.ruleLogs,
-      commercialSummary: extra.commercialSummary,
-    },
+    result: resultFromSnapshot(snapshot),
   };
 }
 

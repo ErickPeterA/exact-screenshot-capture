@@ -79,7 +79,9 @@ export default {
 };
 
 async function handleSsoCallback(request: Request) {
-  const code = new URL(request.url).searchParams.get("code") ?? "";
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code") ?? "";
+  const next = safeJourneyAdminNext(url.searchParams.get("next"));
   try {
     const user = await exchangeCrmSsoCode(code);
     const session = await createJourneyAdminSession(user);
@@ -88,7 +90,7 @@ async function handleSsoCallback(request: Request) {
     // caught by the error boundary. A relative Location also prevents a
     // reverse proxy's internal host/protocol from leaking into the redirect.
     const headers = new Headers({
-      location: "/gestao",
+      location: next,
       "cache-control": "no-store",
     });
     headers.append("set-cookie", serializeJourneyAdminCookie(session.token, session.expiresAt));
@@ -101,6 +103,26 @@ async function handleSsoCallback(request: Request) {
   }
 }
 
+export function safeJourneyAdminNext(value: string | null): string {
+  const hasControlCharacter = value
+    ? Array.from(value).some((character) => {
+        const code = character.charCodeAt(0);
+        return code <= 31 || code === 127;
+      })
+    : false;
+  if (!value || value.includes("\\") || hasControlCharacter) return "/gestao";
+  if (value.includes("?") || value.includes("#")) return "/gestao";
+  try {
+    if (decodeURIComponent(value) !== value) return "/gestao";
+    const parsed = new URL(value, "http://journey.internal");
+    if (parsed.origin !== "http://journey.internal" || parsed.pathname !== value) return "/gestao";
+    if (value !== "/gestao" && !value.startsWith("/gestao/")) return "/gestao";
+    return value;
+  } catch {
+    return "/gestao";
+  }
+}
+
 function renderSsoError() {
-  return "<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Acesso indisponível</title></head><body><main><h1>Não foi possível acessar a Jornada</h1><p>Volte ao CRM e tente novamente.</p></main></body></html>";
+  return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Acesso indisponível</title></head><body><main><h1>Não foi possível acessar a Jornada</h1><p>Volte ao CRM e tente novamente.</p></main></body></html>';
 }

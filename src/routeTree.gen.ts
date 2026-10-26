@@ -15,6 +15,7 @@ import { Route as JTokenRouteImport } from './routes/j/$token'
 import { Route as JornadaSessionIdRouteImport } from './routes/jornada/$sessionId'
 import { Route as JornadaInicioRouteImport } from './routes/jornada/inicio'
 import { Route as ResultadoSessionIdRouteImport } from './routes/resultado/$sessionId'
+import { Route as GestaoResultadosSessionIdRouteImport } from './routes/gestao/resultados/$sessionId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,31 +47,40 @@ const ResultadoSessionIdRoute = ResultadoSessionIdRouteImport.update({
   path: '/resultado/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GestaoResultadosSessionIdRoute =
+  GestaoResultadosSessionIdRouteImport.update({
+    id: '/resultados/$sessionId',
+    path: '/resultados/$sessionId',
+    getParentRoute: () => GestaoRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/gestao': typeof GestaoRoute
+  '/gestao': typeof GestaoRouteWithChildren
   '/j/$token': typeof JTokenRoute
   '/jornada/$sessionId': typeof JornadaSessionIdRoute
   '/jornada/inicio': typeof JornadaInicioRoute
   '/resultado/$sessionId': typeof ResultadoSessionIdRoute
+  '/gestao/resultados/$sessionId': typeof GestaoResultadosSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/gestao': typeof GestaoRoute
+  '/gestao': typeof GestaoRouteWithChildren
   '/j/$token': typeof JTokenRoute
   '/jornada/$sessionId': typeof JornadaSessionIdRoute
   '/jornada/inicio': typeof JornadaInicioRoute
   '/resultado/$sessionId': typeof ResultadoSessionIdRoute
+  '/gestao/resultados/$sessionId': typeof GestaoResultadosSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/gestao': typeof GestaoRoute
+  '/gestao': typeof GestaoRouteWithChildren
   '/j/$token': typeof JTokenRoute
   '/jornada/$sessionId': typeof JornadaSessionIdRoute
   '/jornada/inicio': typeof JornadaInicioRoute
   '/resultado/$sessionId': typeof ResultadoSessionIdRoute
+  '/gestao/resultados/$sessionId': typeof GestaoResultadosSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,6 +91,7 @@ export interface FileRouteTypes {
     | '/jornada/$sessionId'
     | '/jornada/inicio'
     | '/resultado/$sessionId'
+    | '/gestao/resultados/$sessionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -89,6 +100,7 @@ export interface FileRouteTypes {
     | '/jornada/$sessionId'
     | '/jornada/inicio'
     | '/resultado/$sessionId'
+    | '/gestao/resultados/$sessionId'
   id:
     | '__root__'
     | '/'
@@ -97,11 +109,12 @@ export interface FileRouteTypes {
     | '/jornada/$sessionId'
     | '/jornada/inicio'
     | '/resultado/$sessionId'
+    | '/gestao/resultados/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  GestaoRoute: typeof GestaoRoute
+  GestaoRoute: typeof GestaoRouteWithChildren
   JTokenRoute: typeof JTokenRoute
   JornadaSessionIdRoute: typeof JornadaSessionIdRoute
   JornadaInicioRoute: typeof JornadaInicioRoute
@@ -152,12 +165,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResultadoSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gestao/resultados/$sessionId': {
+      id: '/gestao/resultados/$sessionId'
+      path: '/resultados/$sessionId'
+      fullPath: '/gestao/resultados/$sessionId'
+      preLoaderRoute: typeof GestaoResultadosSessionIdRouteImport
+      parentRoute: typeof GestaoRoute
+    }
   }
 }
 
+interface GestaoRouteChildren {
+  GestaoResultadosSessionIdRoute: typeof GestaoResultadosSessionIdRoute
+}
+
+const GestaoRouteChildren: GestaoRouteChildren = {
+  GestaoResultadosSessionIdRoute: GestaoResultadosSessionIdRoute,
+}
+
+const GestaoRouteWithChildren =
+  GestaoRoute._addFileChildren(GestaoRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  GestaoRoute: GestaoRoute,
+  GestaoRoute: GestaoRouteWithChildren,
   JTokenRoute: JTokenRoute,
   JornadaSessionIdRoute: JornadaSessionIdRoute,
   JornadaInicioRoute: JornadaInicioRoute,

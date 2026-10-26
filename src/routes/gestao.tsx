@@ -19,7 +19,6 @@ import { Label } from "@/components/ui/label";
 import {
   createJourneyInviteFn,
   getJourneyAdminSessionFn,
-  getJourneyAdminResultPathFn,
   getJourneyInviteUrlFn,
   listJourneyInvitesFn,
   logoutJourneyAdminFn,
@@ -52,7 +51,6 @@ function ManagementPage() {
   const queryClient = useQueryClient();
   const listInvites = useServerFn(listJourneyInvitesFn);
   const getAdminSession = useServerFn(getJourneyAdminSessionFn);
-  const getAdminResultPath = useServerFn(getJourneyAdminResultPathFn);
   const logout = useServerFn(logoutJourneyAdminFn);
   const createInvite = useServerFn(createJourneyInviteFn);
   const getInviteUrl = useServerFn(getJourneyInviteUrlFn);
@@ -83,10 +81,6 @@ function ManagementPage() {
       queryClient.removeQueries({ queryKey: ["management-invites"] });
       window.location.assign("/gestao");
     },
-  });
-  const openResultMutation = useMutation({
-    mutationFn: (sessionId: string) => getAdminResultPath({ data: { sessionId } }),
-    onSuccess: ({ sessionId }) => window.location.assign(`/resultado/${sessionId}`),
   });
   const createMutation = useMutation({
     mutationFn: ({ inviteId, name }: { inviteId: string | null; name: string }) =>
@@ -313,13 +307,13 @@ function ManagementPage() {
                         <td className="px-4 py-4">
                           <div className="flex flex-wrap gap-2">
                             {invite.status === "completed" && invite.session_id && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openResultMutation.mutate(invite.session_id!)}
-                                disabled={openResultMutation.isPending}
-                              >
-                                <ExternalLink /> Ver resposta
+                              <Button size="sm" variant="outline" asChild>
+                                <Link
+                                  to="/gestao/resultados/$sessionId"
+                                  params={{ sessionId: invite.session_id }}
+                                >
+                                  <ExternalLink /> Ver resposta
+                                </Link>
                               </Button>
                             )}
                             {actionable && invite.link_available && (
