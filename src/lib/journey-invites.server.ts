@@ -32,7 +32,7 @@ export type CreateJourneyInviteInput = {
 
 type InviteRow = {
   id: string;
-  status: "created" | "shared" | "started" | "completed" | "revoked";
+  status: "created" | "shared" | "started" | "completed" | "revoked" | "expired";
   expires_at: string | null;
   revoked_at: string | null;
   client_name: string | null;
@@ -42,7 +42,7 @@ type InviteRow = {
 
 type AdminInviteRow = {
   id: string;
-  status: "created" | "shared" | "started" | "completed" | "revoked";
+  status: "created" | "shared" | "started" | "completed" | "revoked" | "expired";
   client_name: string | null;
   contact_name: string | null;
   contact_email: string | null;
@@ -161,7 +161,12 @@ export async function getJourneyInviteUrl(inviteId: string) {
   );
   const invite = rows[0];
   if (!invite) throw new Error("Jornada não encontrada.");
-  if (invite.status === "completed" || invite.status === "revoked" || invite.revoked_at) {
+  if (
+    invite.status === "completed" ||
+    invite.status === "revoked" ||
+    invite.status === "expired" ||
+    invite.revoked_at
+  ) {
     throw new Error("Este link não está mais disponível.");
   }
   if (invite.expires_at && new Date(invite.expires_at).getTime() <= Date.now()) {
@@ -178,17 +183,29 @@ export async function getJourneyInviteUrl(inviteId: string) {
 }
 
 export async function revokeJourneyInvite(inviteId: string) {
-  const { rows } = await query<{ id: string }>(
-    `UPDATE journey_invites
-        SET status = 'revoked', revoked_at = now()
-      WHERE id = $1
-        AND status IN ('created', 'shared', 'started')
-        AND revoked_at IS NULL
-      RETURNING id`,
-    [inviteId],
-  );
-  if (!rows[0]) throw new Error("Esta Jornada não está disponível para revogação.");
-  return { id: rows[0].id };
+  const transition = await withTransaction(async (client) => {
+    const { rows } = await client.query<{ id: string }>(
+      `UPDATE journey_invites
+          SET status = 'revoked', revoked_at = now()
+        WHERE id = $1
+          AND status IN ('created', 'shared', 'started')
+          AND revoked_at IS NULL
+          AND (expires_at IS NULL OR expires_at > now())
+        RETURNING id`,
+      [inviteId],
+    );
+    const invite = rows[0];
+    if (!invite) return null;
+    const event = await persistJourneyEvent(
+      { event_type: "journey.revoked", journey: { id: invite.id } },
+      client,
+    );
+    return { invite, event };
+  });
+
+  if (!transition) throw new Error("Esta Jornada não está disponível para revogação.");
+  await deliverPersistedJourneyEvent(transition.event);
+  return { id: transition.invite.id };
 }
 
 export async function markJourneyInviteShared(inviteId: string) {
@@ -243,6 +260,7 @@ async function findInvite(token: string) {
 
 function blockedStatus(invite: InviteRow) {
   if (invite.status === "completed") return "completed" as const;
+  if (invite.status === "expired") return "expired" as const;
   if (invite.status === "revoked" || invite.revoked_at) return "revoked" as const;
   if (invite.expires_at && new Date(invite.expires_at).getTime() <= Date.now()) {
     return "expired" as const;

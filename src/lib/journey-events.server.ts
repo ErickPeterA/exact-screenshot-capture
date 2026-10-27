@@ -7,6 +7,8 @@ import { query, withTransaction } from "./db.server";
 export type JourneyEvent =
   | { event_type: "journey.created"; journey: { id: string; expires_at: string | null } }
   | { event_type: "journey.shared"; journey: { id: string } }
+  | { event_type: "journey.revoked"; journey: { id: string } }
+  | { event_type: "journey.expired"; journey: { id: string } }
   | { event_type: "journey.started"; journey: { id: string } }
   | {
       event_type: "journey.identified";
