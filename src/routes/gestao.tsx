@@ -64,6 +64,7 @@ function ManagementPage() {
   const [clientName, setClientName] = useState("");
   const [pendingInviteId, setPendingInviteId] = useState<string | null>(null);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
+  const [generatedInviteId, setGeneratedInviteId] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -92,6 +93,7 @@ function ManagementPage() {
         : createInvite({ data: { clientName: name } }),
     onSuccess: (invite) => {
       setGeneratedUrl(invite.url);
+      setGeneratedInviteId(invite.invite_id);
       setNotice(invite.sync_warning);
       setNameDialogOpen(false);
       setDialogOpen(true);
@@ -107,31 +109,43 @@ function ManagementPage() {
     onError: () =>
       setNotice("Não foi possível revogar esta Jornada. Atualize a lista e tente novamente."),
   });
-  const markSharedMutation = useMutation({
-    mutationFn: (inviteId: string) => markShared({ data: { inviteId } }),
-    onSuccess: () => {
-      setNotice("Jornada marcada como compartilhada.");
-      void refresh();
-    },
-    onError: () =>
-      setNotice("Não foi possível marcar esta Jornada como compartilhada. Atualize a lista."),
-  });
   const recoverLinkMutation = useMutation({
-    mutationFn: async ({ inviteId, open }: { inviteId: string; open: boolean }) => {
+    mutationFn: async ({
+      inviteId,
+      open,
+      markAsShared,
+    }: {
+      inviteId: string;
+      open: boolean;
+      markAsShared: boolean;
+    }) => {
       const result = await getInviteUrl({ data: { inviteId } });
-      if (!result.available) return { copied: false as const, open };
+      if (!result.available) return { copied: false as const, open, sharingFailed: false };
       if (open) {
         window.location.assign(result.url);
-        return { copied: false as const, open };
+        return { copied: false as const, open, sharingFailed: false };
       }
       await navigator.clipboard.writeText(result.url);
-      return { copied: true as const, open };
+      if (markAsShared) {
+        try {
+          await markShared({ data: { inviteId } });
+        } catch {
+          return { copied: true as const, open, sharingFailed: true };
+        }
+      }
+      return { copied: true as const, open, sharingFailed: false };
     },
     onSuccess: (result) => {
-      if (result.copied) setNotice("Link copiado.");
-      else if (!result.open) setNotice("Link antigo indisponível.");
+      if (result.copied) {
+        setNotice(
+          result.sharingFailed
+            ? "Link copiado, mas não foi possível atualizar o status da Jornada."
+            : "Link copiado.",
+        );
+        void refresh();
+      } else if (!result.open) setNotice("Link antigo indisponível.");
     },
-    onError: () => setNotice("Não foi possível recuperar este link."),
+    onError: () => setNotice("Não foi possível copiar este link."),
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["management-invites"] });
 
@@ -159,6 +173,7 @@ function ManagementPage() {
     setClientName("");
     setPendingInviteId(null);
     setGeneratedUrl(null);
+    setGeneratedInviteId(null);
     setCopyFeedback(null);
     setNameDialogOpen(true);
   };
@@ -166,6 +181,7 @@ function ManagementPage() {
     setClientName(currentClientName ?? "");
     setPendingInviteId(inviteId);
     setGeneratedUrl(null);
+    setGeneratedInviteId(null);
     setCopyFeedback(null);
     setNameDialogOpen(true);
   };
@@ -178,6 +194,16 @@ function ManagementPage() {
     if (!generatedUrl) return;
     try {
       await navigator.clipboard.writeText(generatedUrl);
+      if (generatedInviteId) {
+        try {
+          await markShared({ data: { inviteId: generatedInviteId } });
+          setGeneratedInviteId(null);
+          void refresh();
+        } catch {
+          setCopyFeedback("Link copiado, mas não foi possível atualizar o status da Jornada.");
+          return;
+        }
+      }
       setCopyFeedback("Link copiado.");
     } catch {
       setCopyFeedback("Não foi possível copiar automaticamente. Copie o link exibido.");
@@ -337,28 +363,15 @@ function ManagementPage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
-                                  recoverLinkMutation.mutate({ inviteId: invite.id, open: false })
+                                  recoverLinkMutation.mutate({
+                                    inviteId: invite.id,
+                                    open: false,
+                                    markAsShared: invite.status === "created",
+                                  })
                                 }
                                 disabled={recoverLinkMutation.isPending}
                               >
                                 <Copy /> Copiar link
-                              </Button>
-                            )}
-                            {invite.status === "created" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      "Confirmar que este link foi compartilhado com o cliente?",
-                                    )
-                                  )
-                                    markSharedMutation.mutate(invite.id);
-                                }}
-                                disabled={markSharedMutation.isPending}
-                              >
-                                Marcar como compartilhada
                               </Button>
                             )}
                             {invite.status === "started" && invite.link_available && (
@@ -366,7 +379,11 @@ function ManagementPage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
-                                  recoverLinkMutation.mutate({ inviteId: invite.id, open: true })
+                                  recoverLinkMutation.mutate({
+                                    inviteId: invite.id,
+                                    open: true,
+                                    markAsShared: false,
+                                  })
                                 }
                                 disabled={recoverLinkMutation.isPending}
                               >
