@@ -143,6 +143,15 @@ export const revokeJourneyInviteFn = createServerFn({ method: "POST" })
     return revokeJourneyInvite(data.inviteId);
   });
 
+export const markJourneyInviteSharedFn = createServerFn({ method: "POST" })
+  .inputValidator((data) => z.object({ inviteId: uuid }).parse(data))
+  .handler(async ({ data }) => {
+    const { markJourneyInviteShared } = await import("./journey-invites.server");
+    const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
+    await requireJourneyAdminSession();
+    return markJourneyInviteShared(data.inviteId);
+  });
+
 export const regenerateJourneyInviteFn = createServerFn({ method: "POST" })
   .inputValidator((data) => z.object({ inviteId: uuid }).merge(inviteInput).parse(data))
   .handler(async ({ data }) => {

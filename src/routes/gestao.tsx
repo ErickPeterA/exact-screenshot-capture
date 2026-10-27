@@ -22,6 +22,7 @@ import {
   getJourneyInviteUrlFn,
   listJourneyInvitesFn,
   logoutJourneyAdminFn,
+  markJourneyInviteSharedFn,
   regenerateJourneyInviteFn,
   revokeJourneyInviteFn,
 } from "@/lib/journey.functions";
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/gestao")({
 
 const statusMeta = {
   created: { label: "Não iniciada", variant: "secondary" as const },
+  shared: { label: "Compartilhada", variant: "secondary" as const },
   started: { label: "Em andamento", variant: "default" as const },
   completed: { label: "Concluída", variant: "outline" as const },
   revoked: { label: "Revogada", variant: "destructive" as const },
@@ -55,6 +57,7 @@ function ManagementPage() {
   const createInvite = useServerFn(createJourneyInviteFn);
   const getInviteUrl = useServerFn(getJourneyInviteUrlFn);
   const revokeInvite = useServerFn(revokeJourneyInviteFn);
+  const markShared = useServerFn(markJourneyInviteSharedFn);
   const regenerateInvite = useServerFn(regenerateJourneyInviteFn);
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -103,6 +106,15 @@ function ManagementPage() {
     },
     onError: () =>
       setNotice("Não foi possível revogar esta Jornada. Atualize a lista e tente novamente."),
+  });
+  const markSharedMutation = useMutation({
+    mutationFn: (inviteId: string) => markShared({ data: { inviteId } }),
+    onSuccess: () => {
+      setNotice("Jornada marcada como compartilhada.");
+      void refresh();
+    },
+    onError: () =>
+      setNotice("Não foi possível marcar esta Jornada como compartilhada. Atualize a lista."),
   });
   const recoverLinkMutation = useMutation({
     mutationFn: async ({ inviteId, open }: { inviteId: string; open: boolean }) => {
@@ -175,7 +187,8 @@ function ManagementPage() {
   const invites = invitesQuery.data ?? [];
   const counts = { created: 0, started: 0, completed: 0, revoked: 0 };
   invites.forEach((invite) => {
-    if (invite.status in counts) counts[invite.status as keyof typeof counts] += 1;
+    if (invite.status === "shared") counts.created += 1;
+    else if (invite.status in counts) counts[invite.status as keyof typeof counts] += 1;
   });
 
   return (
@@ -281,7 +294,10 @@ function ManagementPage() {
                 <tbody className="divide-y">
                   {invites.map((invite) => {
                     const status = statusMeta[invite.status];
-                    const actionable = invite.status === "created" || invite.status === "started";
+                    const actionable =
+                      invite.status === "created" ||
+                      invite.status === "shared" ||
+                      invite.status === "started";
                     return (
                       <tr key={invite.id} className="align-top">
                         <td className="px-4 py-4 font-medium">{invite.client_name ?? "—"}</td>
@@ -326,6 +342,23 @@ function ManagementPage() {
                                 disabled={recoverLinkMutation.isPending}
                               >
                                 <Copy /> Copiar link
+                              </Button>
+                            )}
+                            {invite.status === "created" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      "Confirmar que este link foi compartilhado com o cliente?",
+                                    )
+                                  )
+                                    markSharedMutation.mutate(invite.id);
+                                }}
+                                disabled={markSharedMutation.isPending}
+                              >
+                                Marcar como compartilhada
                               </Button>
                             )}
                             {invite.status === "started" && invite.link_available && (

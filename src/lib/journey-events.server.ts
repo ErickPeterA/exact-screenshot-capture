@@ -6,6 +6,7 @@ import { query, withTransaction } from "./db.server";
 
 export type JourneyEvent =
   | { event_type: "journey.created"; journey: { id: string; expires_at: string | null } }
+  | { event_type: "journey.shared"; journey: { id: string } }
   | { event_type: "journey.started"; journey: { id: string } }
   | {
       event_type: "journey.identified";
@@ -66,23 +67,37 @@ export async function sendJourneyEvent(payload: JourneyEventPayload) {
   if (!response.ok) throw new JourneyEventHttpError(response.status);
 }
 
-export async function enqueueJourneyEvent(event: JourneyEvent) {
+export async function persistJourneyEvent(event: JourneyEvent, client?: PoolClient) {
   const eventId = randomUUID();
   const payload: JourneyEventPayload = {
     event_id: eventId,
     occurred_at: new Date().toISOString(),
     ...event,
   };
-  const { rows } = await query<{ id: string }>(
-    `INSERT INTO journey_event_outbox
+  const statement = `INSERT INTO journey_event_outbox
       (event_id, event_type, journey_invite_id, payload, next_attempt_at)
      VALUES ($1, $2, $3, $4::jsonb, now())
-     RETURNING id`,
-    [eventId, event.event_type, event.journey.id, JSON.stringify(payload)],
-  );
+     RETURNING id`;
+  const values = [eventId, event.event_type, event.journey.id, JSON.stringify(payload)];
+  const { rows } = client
+    ? await client.query<{ id: string }>(statement, values)
+    : await query<{ id: string }>(statement, values);
 
-  const delivered = await attemptImmediateDelivery(rows[0]!.id, eventId, event.event_type);
-  return { eventId, delivered };
+  return { id: rows[0]!.id, eventId, eventType: event.event_type };
+}
+
+export async function deliverPersistedJourneyEvent(event: {
+  id: string;
+  eventId: string;
+  eventType: string;
+}) {
+  return attemptImmediateDelivery(event.id, event.eventId, event.eventType);
+}
+
+export async function enqueueJourneyEvent(event: JourneyEvent) {
+  const persisted = await persistJourneyEvent(event);
+  const delivered = await deliverPersistedJourneyEvent(persisted);
+  return { eventId: persisted.eventId, delivered };
 }
 
 export function enqueueJourneyCreatedEvent(id: string, expiresAt: Date | null) {

@@ -2,8 +2,13 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { JOURNEY_VERSION } from "@/journey/config";
 
-import { query } from "./db.server";
-import { enqueueJourneyCreatedEvent, enqueueJourneyEvent } from "./journey-events.server";
+import { query, withTransaction } from "./db.server";
+import {
+  deliverPersistedJourneyEvent,
+  enqueueJourneyCreatedEvent,
+  enqueueJourneyEvent,
+  persistJourneyEvent,
+} from "./journey-events.server";
 import { getState, logEvent, saveAnswer } from "./journey.server";
 import { decryptJourneyToken, encryptJourneyToken } from "./journey-link-crypto.server";
 
@@ -27,7 +32,7 @@ export type CreateJourneyInviteInput = {
 
 type InviteRow = {
   id: string;
-  status: "created" | "started" | "completed" | "revoked";
+  status: "created" | "shared" | "started" | "completed" | "revoked";
   expires_at: string | null;
   revoked_at: string | null;
   client_name: string | null;
@@ -37,7 +42,7 @@ type InviteRow = {
 
 type AdminInviteRow = {
   id: string;
-  status: "created" | "started" | "completed" | "revoked";
+  status: "created" | "shared" | "started" | "completed" | "revoked";
   client_name: string | null;
   contact_name: string | null;
   contact_email: string | null;
@@ -177,13 +182,39 @@ export async function revokeJourneyInvite(inviteId: string) {
     `UPDATE journey_invites
         SET status = 'revoked', revoked_at = now()
       WHERE id = $1
-        AND status IN ('created', 'started')
+        AND status IN ('created', 'shared', 'started')
         AND revoked_at IS NULL
       RETURNING id`,
     [inviteId],
   );
   if (!rows[0]) throw new Error("Esta Jornada não está disponível para revogação.");
   return { id: rows[0].id };
+}
+
+export async function markJourneyInviteShared(inviteId: string) {
+  const transition = await withTransaction(async (client) => {
+    const { rows } = await client.query<{ id: string }>(
+      `UPDATE journey_invites
+          SET status = 'shared'
+        WHERE id = $1
+          AND status = 'created'
+          AND revoked_at IS NULL
+          AND (expires_at IS NULL OR expires_at > now())
+        RETURNING id`,
+      [inviteId],
+    );
+    const invite = rows[0];
+    if (!invite) return null;
+    const event = await persistJourneyEvent(
+      { event_type: "journey.shared", journey: { id: invite.id } },
+      client,
+    );
+    return { invite, event };
+  });
+
+  if (!transition) throw new Error("Esta Jornada não pode ser marcada como compartilhada.");
+  await deliverPersistedJourneyEvent(transition.event);
+  return { id: transition.invite.id, status: "shared" as const };
 }
 
 export async function regenerateJourneyInvite(inviteId: string, input: CreateJourneyInviteInput) {
@@ -216,7 +247,8 @@ function blockedStatus(invite: InviteRow) {
   if (invite.expires_at && new Date(invite.expires_at).getTime() <= Date.now()) {
     return "expired" as const;
   }
-  if (invite.status !== "created" && invite.status !== "started") return "invalid" as const;
+  if (invite.status !== "created" && invite.status !== "shared" && invite.status !== "started")
+    return "invalid" as const;
   return null;
 }
 
@@ -251,10 +283,10 @@ export async function startJourneyInvite(
 
   const { rows } = await query<{ id: string; journey_id: string; started_now: boolean }>(
     `WITH eligible AS MATERIALIZED (
-       SELECT id, status = 'created' AS started_now
+       SELECT id, status IN ('created', 'shared') AS started_now
          FROM journey_invites
         WHERE id = $1
-          AND status IN ('created', 'started')
+          AND status IN ('created', 'shared', 'started')
           AND revoked_at IS NULL
           AND (expires_at IS NULL OR expires_at > now())
         FOR UPDATE
