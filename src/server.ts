@@ -16,6 +16,16 @@ type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
 
+function withNoIndexHeaders(response: Response) {
+  const headers = new Headers(response.headers);
+  headers.set("x-robots-tag", "noindex, nofollow");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
 startJourneyEventOutboxWorker();
@@ -60,26 +70,30 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       if (request.method === "GET" && new URL(request.url).pathname === "/auth/sso") {
-        return await handleSsoCallback(request);
+        return withNoIndexHeaders(await handleSsoCallback(request));
       }
       if (request.method === "GET" && new URL(request.url).pathname === "/health") {
         try {
           await query("SELECT 1");
-          return Response.json({ status: "ok", database: "jornada" });
+          return withNoIndexHeaders(Response.json({ status: "ok", database: "jornada" }));
         } catch (error) {
           console.error("Health check database query failed", error);
-          return Response.json({ status: "error", database: "unavailable" }, { status: 503 });
+          return withNoIndexHeaders(
+            Response.json({ status: "error", database: "unavailable" }, { status: 503 }),
+          );
         }
       }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return withNoIndexHeaders(await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       console.error(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      return withNoIndexHeaders(
+        new Response(renderErrorPage(), {
+          status: 500,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+      );
     }
   },
 };

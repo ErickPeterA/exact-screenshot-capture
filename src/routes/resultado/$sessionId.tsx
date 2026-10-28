@@ -82,7 +82,7 @@ function ResultPage() {
             </Button>
           )}
           <Button variant="ghost" asChild>
-            <Link to="/">Voltar ao início</Link>
+            <a href="https://vgresultados.com.br/">Conheça a VG Resultados</a>
           </Button>
         </>
       }

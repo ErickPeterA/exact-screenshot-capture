@@ -72,11 +72,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "robots", content: "noindex, nofollow" },
       { title: "Jornada do Empreendedor | VG Gestão de Resultados" },
       {
         name: "description",
-        content:
-          "Autodiagnóstico guiado de gestão empresarial da VG Gestão de Resultados.",
+        content: "Autodiagnóstico guiado de gestão empresarial da VG Gestão de Resultados.",
       },
       { name: "author", content: "VG Gestão de Resultados" },
       { property: "og:type", content: "website" },

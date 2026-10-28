@@ -47,7 +47,17 @@ function PublicJourneyPage() {
     return <Message text="Este link de Jornada é inválido." />;
   }
   if (access.status === "completed") {
-    return <ResultReport company={access.result.session.company} result={access.result.result!} />;
+    return (
+      <ResultReport
+        company={access.result.session.company}
+        result={access.result.result!}
+        actions={
+          <Button asChild>
+            <a href="https://vgresultados.com.br/">Conheça a VG Resultados</a>
+          </Button>
+        }
+      />
+    );
   }
   if (access.status === "revoked") {
     return <Message text="Este link de Jornada foi revogado." />;
