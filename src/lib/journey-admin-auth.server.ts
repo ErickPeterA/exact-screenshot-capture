@@ -29,6 +29,25 @@ function normalizePermissions(value: unknown) {
   return Array.isArray(value) || (typeof value === "object" && value !== null) ? value : [];
 }
 
+function developmentAdminSession(): JourneyAdminSession | null {
+  if (
+    process.env["NODE_ENV"] === "production" ||
+    process.env["DEV_BYPASS_JOURNEY_ADMIN"] !== "true"
+  ) {
+    return null;
+  }
+
+  return {
+    id: "dev-local-session",
+    crm_user_id: "dev-local",
+    name: "Desenvolvimento Local",
+    email: "dev@localhost",
+    role: "admin",
+    permissions: ["commercial.read"],
+    expires_at: new Date(Date.now() + JOURNEY_ADMIN_SESSION_SECONDS * 1000).toISOString(),
+  };
+}
+
 export async function createJourneyAdminSession(user: CrmSsoUser) {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + JOURNEY_ADMIN_SESSION_SECONDS * 1000);
@@ -64,6 +83,8 @@ export async function getJourneyAdminSessionFromToken(token: string | undefined)
 }
 
 export async function getJourneyAdminSession() {
+  const developmentSession = developmentAdminSession();
+  if (developmentSession) return developmentSession;
   return getJourneyAdminSessionFromToken(getCookie(JOURNEY_ADMIN_COOKIE));
 }
 

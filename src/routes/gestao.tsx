@@ -218,8 +218,8 @@ function ManagementPage() {
   });
 
   return (
-    <main className="min-h-screen bg-surface-2 pb-12">
-      <header className="border-b bg-background">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#d1fae5_0,_#f0fdf4_28%,_#f8fafc_68%)] pb-16">
+      <header className="sticky top-0 z-20 border-b border-emerald-100/80 bg-white/85 shadow-[0_1px_20px_rgba(6,78,59,0.06)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           <Link to="/" aria-label="Ir para a página inicial">
             <Wordmark />
@@ -233,34 +233,55 @@ function ManagementPage() {
             </div>
             <Button
               variant="outline"
+              className="border-emerald-200 bg-white/70 text-emerald-950 hover:bg-emerald-50"
               onClick={() => logoutMutation.mutate()}
               disabled={logoutMutation.isPending}
             >
               Sair
             </Button>
-            <Button onClick={openCreate} disabled={createMutation.isPending}>
+            <Button
+              className="bg-gradient-to-r from-emerald-700 to-teal-600 text-white shadow-lg shadow-emerald-900/15 hover:from-emerald-800 hover:to-teal-700"
+              onClick={openCreate}
+              disabled={createMutation.isPending}
+            >
               <Plus /> Gerar Jornada
             </Button>
           </div>
         </div>
       </header>
       <div className="mx-auto max-w-7xl px-6 py-9">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Área interna</p>
-            <h1 className="font-display text-3xl font-semibold">Jornada do Empreendedor</h1>
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950 via-emerald-800 to-teal-600 px-7 py-8 text-white shadow-2xl shadow-emerald-950/20 md:px-10 md:py-10">
+          <div className="pointer-events-none absolute -top-24 -right-16 h-64 w-64 rounded-full bg-lime-300/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-28 left-1/3 h-56 w-56 rounded-full bg-cyan-300/15 blur-3xl" />
+          <div className="relative flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.2em] text-emerald-100 uppercase">
+                Área interna
+              </p>
+              <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight md:text-4xl">
+                Jornada do Empreendedor
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-emerald-50/80">
+                Acompanhe convites, acessos e resultados em um só lugar.
+              </p>
+            </div>
+            {invitesQuery.isFetching && (
+              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-emerald-50 backdrop-blur">
+                Atualizando…
+              </span>
+            )}
           </div>
-          {invitesQuery.isFetching && (
-            <span className="text-sm text-muted-foreground">Atualizando…</span>
-          )}
         </div>
         {notice && (
-          <p className="mt-4 text-sm text-muted-foreground" role="status">
+          <p
+            className="mt-5 rounded-2xl border border-emerald-200/80 bg-white/80 px-5 py-3 text-sm text-emerald-950 shadow-sm backdrop-blur"
+            role="status"
+          >
             {notice}
           </p>
         )}
         <section
-          className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          className="relative z-10 -mt-2 grid gap-4 px-3 sm:grid-cols-2 lg:grid-cols-4"
           aria-label="Resumo das jornadas"
         >
           <Summary label="Não iniciadas" value={counts.created} />
@@ -268,10 +289,16 @@ function ManagementPage() {
           <Summary label="Concluídas" value={counts.completed} />
           <Summary label="Revogadas" value={counts.revoked} />
         </section>
-        <section className="surface-card mt-8 overflow-hidden" aria-labelledby="lista-jornadas">
-          <div className="flex items-center justify-between border-b px-6 py-5">
+        <section
+          className="mt-8 overflow-hidden rounded-3xl border border-emerald-100 bg-white/90 shadow-xl shadow-emerald-950/8 backdrop-blur"
+          aria-labelledby="lista-jornadas"
+        >
+          <div className="flex items-center justify-between border-b border-emerald-100 bg-gradient-to-r from-emerald-50/90 to-teal-50/50 px-6 py-5">
             <div>
-              <h2 id="lista-jornadas" className="font-display text-lg font-semibold">
+              <h2
+                id="lista-jornadas"
+                className="font-display text-lg font-semibold text-emerald-950"
+              >
                 Jornadas geradas
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -291,33 +318,27 @@ function ManagementPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Crie o primeiro link para enviar a um cliente.
               </p>
-              <Button className="mt-5" onClick={openCreate} disabled={createMutation.isPending}>
+              <Button
+                className="mt-5 bg-emerald-700 text-white hover:bg-emerald-800"
+                onClick={openCreate}
+                disabled={createMutation.isPending}
+              >
                 <Plus /> Gerar Jornada
               </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1080px] text-left text-sm">
-                <thead className="bg-muted/50 text-xs text-muted-foreground">
+              <table className="w-full min-w-[860px] text-left text-sm">
+                <thead className="border-b border-emerald-100 bg-emerald-50/70 text-xs tracking-wide text-emerald-900/70 uppercase">
                   <tr>
-                    {[
-                      "Cliente/Empresa",
-                      "Contato",
-                      "E-mail",
-                      "Status",
-                      "Criada em",
-                      "Iniciada em",
-                      "Concluída em",
-                      "Expira em",
-                      "Ações",
-                    ].map((heading) => (
-                      <th key={heading} className="px-4 py-3 font-medium">
-                        {heading}
-                      </th>
-                    ))}
+                    <th className="w-[25%] px-6 py-4 font-semibold">Cliente/Empresa</th>
+                    <th className="w-[24%] px-6 py-4 font-semibold">E-mail</th>
+                    <th className="w-[13%] px-6 py-4 font-semibold">Status</th>
+                    <th className="w-[16%] px-6 py-4 font-semibold">Expira em</th>
+                    <th className="px-6 py-4 text-right font-semibold">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-emerald-100/70">
                   {invites.map((invite) => {
                     const status = statusMeta[invite.status];
                     const actionable =
@@ -325,31 +346,32 @@ function ManagementPage() {
                       invite.status === "shared" ||
                       invite.status === "started";
                     return (
-                      <tr key={invite.id} className="align-top">
-                        <td className="px-4 py-4 font-medium">{invite.client_name ?? "—"}</td>
-                        <td className="px-4 py-4">{invite.contact_name ?? "—"}</td>
-                        <td className="px-4 py-4 text-muted-foreground">
+                      <tr
+                        key={invite.id}
+                        className="align-middle transition-colors hover:bg-emerald-50/55"
+                      >
+                        <td className="px-6 py-5">
+                          <span className="block max-w-[260px] truncate font-semibold text-foreground">
+                            {invite.client_name ?? "—"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-5 text-muted-foreground">
                           {invite.contact_email ?? "—"}
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-6 py-5">
                           <Badge variant={status.variant}>{status.label}</Badge>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          {formatDate(invite.created_at)}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          {formatDate(invite.started_at)}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          {formatDate(invite.completed_at)}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
+                        <td className="px-6 py-5 whitespace-nowrap text-muted-foreground">
                           {formatDate(invite.expires_at)}
                         </td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-wrap gap-2">
+                        <td className="px-6 py-5">
+                          <div className="flex flex-wrap justify-end gap-2">
                             {invite.status === "completed" && invite.session_id && (
-                              <Button size="sm" variant="outline" asChild>
+                              <Button
+                                size="sm"
+                                className="bg-emerald-700 text-white shadow-sm hover:bg-emerald-800"
+                                asChild
+                              >
                                 <Link
                                   to="/gestao/resultados/$sessionId"
                                   params={{ sessionId: invite.session_id }}
@@ -362,6 +384,7 @@ function ManagementPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
+                                className="border-emerald-200 text-emerald-800 hover:bg-emerald-50 hover:text-emerald-950"
                                 onClick={() =>
                                   recoverLinkMutation.mutate({
                                     inviteId: invite.id,
@@ -378,6 +401,7 @@ function ManagementPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
+                                className="border-emerald-200 text-emerald-800 hover:bg-emerald-50 hover:text-emerald-950"
                                 onClick={() =>
                                   recoverLinkMutation.mutate({
                                     inviteId: invite.id,
@@ -393,7 +417,8 @@ function ManagementPage() {
                             {actionable && (
                               <Button
                                 size="sm"
-                                variant="outline"
+                                variant="ghost"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                                 onClick={() => {
                                   if (
                                     window.confirm(
@@ -410,7 +435,8 @@ function ManagementPage() {
                             {(invite.status === "expired" || invite.status === "revoked") && (
                               <Button
                                 size="sm"
-                                variant="ghost"
+                                variant="outline"
+                                className="border-emerald-200 text-emerald-800 hover:bg-emerald-50 hover:text-emerald-950"
                                 onClick={() => openReplacement(invite.id, invite.client_name)}
                                 disabled={createMutation.isPending}
                               >
@@ -434,7 +460,7 @@ function ManagementPage() {
         </section>
       </div>
       <Dialog open={nameDialogOpen} onOpenChange={setNameDialogOpen}>
-        <DialogContent>
+        <DialogContent className="border-emerald-100 shadow-2xl shadow-emerald-950/15">
           <DialogHeader>
             <DialogTitle>Gerar novo link</DialogTitle>
             <DialogDescription>
@@ -465,6 +491,7 @@ function ManagementPage() {
             )}
             <Button
               type="submit"
+              className="bg-emerald-700 text-white hover:bg-emerald-800"
               disabled={clientName.trim().length < 2 || createMutation.isPending}
             >
               {createMutation.isPending ? "Gerando…" : "Confirmar e gerar link"}
@@ -473,7 +500,7 @@ function ManagementPage() {
         </DialogContent>
       </Dialog>
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="border-emerald-100 shadow-2xl shadow-emerald-950/15">
           <DialogHeader>
             <DialogTitle>Link gerado</DialogTitle>
             <DialogDescription>
@@ -484,7 +511,10 @@ function ManagementPage() {
             <div className="grid gap-3">
               <Label htmlFor="generated-link">Link gerado</Label>
               <Input id="generated-link" readOnly value={generatedUrl} />
-              <Button onClick={copyLink}>
+              <Button
+                className="bg-gradient-to-r from-emerald-700 to-teal-600 text-white hover:from-emerald-800 hover:to-teal-700"
+                onClick={copyLink}
+              >
                 <Copy /> Copiar link
               </Button>
               {copyFeedback && (
@@ -502,9 +532,11 @@ function ManagementPage() {
 
 function Summary({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border bg-background p-5">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-2 font-display text-3xl font-semibold">{value}</p>
+    <div className="group relative overflow-hidden rounded-2xl border border-emerald-100 bg-white/95 p-5 shadow-lg shadow-emerald-950/7 transition duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-emerald-950/10">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-600 via-teal-500 to-lime-400" />
+      <div className="absolute -top-10 -right-10 h-24 w-24 rounded-full bg-emerald-100/60 transition-transform duration-300 group-hover:scale-125" />
+      <p className="relative text-sm font-medium text-emerald-900/65">{label}</p>
+      <p className="relative mt-2 font-display text-3xl font-semibold text-emerald-950">{value}</p>
     </div>
   );
 }
