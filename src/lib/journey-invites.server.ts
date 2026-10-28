@@ -1,15 +1,12 @@
 import { createHash, randomBytes } from "node:crypto";
 
+import type { PoolClient } from "pg";
+
 import { JOURNEY_VERSION } from "@/journey/config";
 
 import { query, withTransaction } from "./db.server";
-import {
-  deliverPersistedJourneyEvent,
-  enqueueJourneyCreatedEvent,
-  enqueueJourneyEvent,
-  persistJourneyEvent,
-} from "./journey-events.server";
-import { getState, logEvent, saveAnswer } from "./journey.server";
+import { deliverPersistedJourneyEvent, persistJourneyEvent } from "./journey-events.server";
+import { getPersistedResult, getState, logEvent, saveAnswer } from "./journey.server";
 import { decryptJourneyToken, encryptJourneyToken } from "./journey-link-crypto.server";
 
 export type ParticipantProfile = Record<string, never>;
@@ -65,13 +62,19 @@ export type JourneyInviteForManagement = Omit<AdminInviteRow, "status"> & {
 export type PublicJourneyAccess =
   | { status: "active"; state: NonNullable<Awaited<ReturnType<typeof getState>>> }
   | { status: "needs_details" }
-  | { status: "invalid" | "completed" | "revoked" | "expired" };
+  | {
+      status: "completed";
+      result: NonNullable<Awaited<ReturnType<typeof getPersistedResult>>>;
+    }
+  | { status: "invalid" }
+  | { status: "revoked" }
+  | { status: "expired" };
 
 export function hashJourneyToken(token: string) {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
-export async function createJourneyInvite(input: CreateJourneyInviteInput = {}) {
+function prepareJourneyInvite(input: CreateJourneyInviteInput) {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashJourneyToken(token);
   const tokenEncrypted = encryptJourneyToken(token);
@@ -81,55 +84,62 @@ export async function createJourneyInvite(input: CreateJourneyInviteInput = {}) 
     throw new Error("expires_at inválido.");
   }
 
-  const { rows } = await query<{ id: string }>(
+  return { token, tokenHash, tokenEncrypted, expiresAt };
+}
+
+async function insertJourneyInvite(client: PoolClient, input: CreateJourneyInviteInput) {
+  const prepared = prepareJourneyInvite(input);
+  const { rows } = await client.query<{ id: string }>(
     `INSERT INTO journey_invites
       (token_hash, token_encrypted, external_reference, crm_client_id, client_name, contact_name, contact_email, expires_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id`,
     [
-      tokenHash,
-      tokenEncrypted,
+      prepared.tokenHash,
+      prepared.tokenEncrypted,
       input.external_reference ?? null,
       input.crm_client_id ?? null,
       input.client_name ?? null,
       input.contact_name ?? null,
       input.contact_email ?? null,
-      expiresAt,
+      prepared.expiresAt,
     ],
   );
 
+  const event = await persistJourneyEvent(
+    {
+      event_type: "journey.created",
+      journey: { id: rows[0]!.id, expires_at: prepared.expiresAt?.toISOString() ?? null },
+    },
+    client,
+  );
+  return { id: rows[0]!.id, event, ...prepared };
+}
+
+function journeyInviteResult(
+  invite: Awaited<ReturnType<typeof insertJourneyInvite>>,
+  delivered: boolean,
+) {
   const baseUrl = (process.env["PUBLIC_APP_URL"] ?? "https://jornada.vgresultados.com.br").replace(
     /\/$/,
     "",
   );
-
-  const delivery = await enqueueJourneyCreatedEvent(rows[0]!.id, expiresAt);
-  const syncWarning = delivery.delivered
-    ? null
-    : "Link gerado, mas não foi possível sincronizar com o CRM.";
-
   return {
-    invite_id: rows[0]!.id,
-    token,
-    url: `${baseUrl}/j/${encodeURIComponent(token)}`,
-    sync_warning: syncWarning,
+    invite_id: invite.id,
+    token: invite.token,
+    url: `${baseUrl}/j/${encodeURIComponent(invite.token)}`,
+    sync_warning: delivered ? null : "Link gerado, mas não foi possível sincronizar com o CRM.",
   };
 }
 
-function managementStatus(invite: AdminInviteRow): JourneyInviteForManagement["status"] {
-  if (
-    invite.expires_at &&
-    new Date(invite.expires_at).getTime() <= Date.now() &&
-    invite.status !== "completed" &&
-    invite.status !== "revoked"
-  ) {
-    return "expired";
-  }
-  return invite.status;
+export async function createJourneyInvite(input: CreateJourneyInviteInput = {}) {
+  const invite = await withTransaction((client) => insertJourneyInvite(client, input));
+  const delivered = await deliverPersistedJourneyEvent(invite.event);
+  return journeyInviteResult(invite, delivered);
 }
 
 function toManagementInvite(invite: AdminInviteRow): JourneyInviteForManagement {
-  return { ...invite, status: managementStatus(invite) };
+  return invite;
 }
 
 export async function listJourneyInvites(): Promise<JourneyInviteForManagement[]> {
@@ -235,16 +245,40 @@ export async function markJourneyInviteShared(inviteId: string) {
 }
 
 export async function regenerateJourneyInvite(inviteId: string, input: CreateJourneyInviteInput) {
-  const { rows } = await query<{ id: string }>(
-    `UPDATE journey_invites
-        SET status = 'revoked', revoked_at = now()
-      WHERE id = $1
-        AND status <> 'completed'
-      RETURNING id`,
-    [inviteId],
-  );
-  if (!rows[0]) throw new Error("Não foi possível gerar um novo link para esta Jornada.");
-  return createJourneyInvite(input);
+  const transition = await withTransaction(async (client) => {
+    const { rows } = await client.query<{ id: string; status: InviteRow["status"] }>(
+      "SELECT id, status FROM journey_invites WHERE id = $1 FOR UPDATE",
+      [inviteId],
+    );
+    const oldInvite = rows[0];
+    if (!oldInvite || oldInvite.status === "completed") {
+      throw new Error("Não foi possível gerar um novo link para esta Jornada.");
+    }
+
+    const events: Array<Awaited<ReturnType<typeof persistJourneyEvent>>> = [];
+    if (["created", "shared", "started"].includes(oldInvite.status)) {
+      await client.query(
+        "UPDATE journey_invites SET status='revoked', revoked_at=now() WHERE id=$1",
+        [oldInvite.id],
+      );
+      events.push(
+        await persistJourneyEvent(
+          { event_type: "journey.revoked", journey: { id: oldInvite.id } },
+          client,
+        ),
+      );
+    }
+
+    const newInvite = await insertJourneyInvite(client, input);
+    events.push(newInvite.event);
+    return { newInvite, events };
+  });
+
+  const deliveryResults = [];
+  for (const event of transition.events) {
+    deliveryResults.push(await deliverPersistedJourneyEvent(event));
+  }
+  return journeyInviteResult(transition.newInvite, deliveryResults.every(Boolean));
 }
 
 async function findInvite(token: string) {
@@ -275,7 +309,19 @@ export async function openJourneyInvite(token: string): Promise<PublicJourneyAcc
   if (!invite) return { status: "invalid" };
 
   const blocked = blockedStatus(invite);
-  if (blocked) return { status: blocked };
+  if (blocked === "completed") {
+    const { rows } = await query<{ id: string }>(
+      "SELECT id FROM journey_sessions WHERE journey_invite_id=$1",
+      [invite.id],
+    );
+    const result = rows[0] ? await getPersistedResult(rows[0].id) : null;
+    return result?.completed && result.result
+      ? { status: "completed", result }
+      : { status: "invalid" };
+  }
+  if (blocked === "revoked") return { status: "revoked" };
+  if (blocked === "expired") return { status: "expired" };
+  if (blocked) return { status: "invalid" };
 
   const { rows } = await query<{ id: string }>(
     "SELECT id FROM journey_sessions WHERE journey_invite_id = $1",
@@ -297,10 +343,11 @@ export async function startJourneyInvite(
   if (!invite) return { status: "invalid" };
 
   const blocked = blockedStatus(invite);
-  if (blocked) return { status: blocked };
+  if (blocked) return openJourneyInvite(token);
 
-  const { rows } = await query<{ id: string; journey_id: string; started_now: boolean }>(
-    `WITH eligible AS MATERIALIZED (
+  const transition = await withTransaction(async (client) => {
+    const { rows } = await client.query<{ id: string; journey_id: string; started_now: boolean }>(
+      `WITH eligible AS MATERIALIZED (
        SELECT id, status IN ('created', 'shared') AS started_now
          FROM journey_invites
         WHERE id = $1
@@ -328,36 +375,50 @@ export async function startJourneyInvite(
      DO UPDATE SET name = EXCLUDED.name, company = EXCLUDED.company
      RETURNING id, journey_invite_id AS journey_id,
        (SELECT started_now FROM active_invite) AS started_now`,
-    [
-      invite.id,
-      identification.name,
-      identification.company,
-      identification.email,
-      identification.phone,
-      JOURNEY_VERSION,
-    ],
-  );
+      [
+        invite.id,
+        identification.name,
+        identification.company,
+        identification.email,
+        identification.phone,
+        JOURNEY_VERSION,
+      ],
+    );
 
-  const sessionId = rows[0]?.id;
+    const row = rows[0];
+    if (!row || !row.started_now) return { row, events: [] };
+
+    const started = await persistJourneyEvent(
+      { event_type: "journey.started", journey: { id: row.journey_id } },
+      client,
+    );
+    await client.query(
+      "INSERT INTO analytics_events (session_id,event_name,node_code,metadata) VALUES ($1,$2,$3,$4::jsonb)",
+      [
+        row.id,
+        "participant_profile_submitted",
+        null,
+        JSON.stringify({ ...identification, ...profile }),
+      ],
+    );
+    const identified = await persistJourneyEvent(
+      {
+        event_type: "journey.identified",
+        journey: { id: row.journey_id },
+        identification,
+      },
+      client,
+    );
+    return { row, events: [started, identified] };
+  });
+
+  const sessionId = transition.row?.id;
   if (!sessionId) {
-    const current = await findInvite(token);
-    return { status: current ? (blockedStatus(current) ?? "invalid") : "invalid" };
+    return openJourneyInvite(token);
   }
 
-  const journeyId = rows[0]!.journey_id;
-  if (rows[0]!.started_now) {
-    await enqueueJourneyEvent({ event_type: "journey.started", journey: { id: journeyId } });
-
-    await logEvent(sessionId, "participant_profile_submitted", null, {
-      ...identification,
-      ...profile,
-    });
-
-    await enqueueJourneyEvent({
-      event_type: "journey.identified",
-      journey: { id: journeyId },
-      identification,
-    });
+  for (const event of transition.events) {
+    await deliverPersistedJourneyEvent(event);
   }
 
   const state = await getState(sessionId);
@@ -377,4 +438,21 @@ export async function saveInviteAnswer(token: string, nodeCode: string, optionCo
   if (!sessionId) return null;
 
   return saveAnswer(sessionId, nodeCode, optionCode);
+}
+
+export async function trackInviteEvent(
+  token: string,
+  eventName: string,
+  nodeCode: string | null,
+  metadata: Record<string, unknown>,
+) {
+  const invite = await findInvite(token);
+  if (!invite || blockedStatus(invite)) throw new Error("Este convite não está mais disponível.");
+  const { rows } = await query<{ id: string }>(
+    "SELECT id FROM journey_sessions WHERE journey_invite_id=$1",
+    [invite.id],
+  );
+  if (!rows[0]) throw new Error("Sessão não encontrada.");
+  await logEvent(rows[0].id, eventName, nodeCode, metadata);
+  return { ok: true };
 }

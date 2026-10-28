@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { JourneyExperience } from "@/routes/jornada/$sessionId";
+import { ResultReport } from "@/components/result/ResultReport";
 import {
   answerInviteQuestionFn,
   openJourneyInviteFn,
   startJourneyInviteFn,
+  trackInviteEventFn,
 } from "@/lib/journey.functions";
 
 export const Route = createFileRoute("/j/$token")({
@@ -28,6 +30,7 @@ function PublicJourneyPage() {
   const openInvite = useServerFn(openJourneyInviteFn);
   const startInvite = useServerFn(startJourneyInviteFn);
   const answer = useServerFn(answerInviteQuestionFn);
+  const trackInvite = useServerFn(trackInviteEventFn);
 
   const accessQuery = useQuery({
     queryKey: ["journey-invite", token],
@@ -44,7 +47,7 @@ function PublicJourneyPage() {
     return <Message text="Este link de Jornada é inválido." />;
   }
   if (access.status === "completed") {
-    return <Message text="Esta Jornada já foi concluída." />;
+    return <ResultReport company={access.result.session.company} result={access.result.result!} />;
   }
   if (access.status === "revoked") {
     return <Message text="Este link de Jornada foi revogado." />;
@@ -66,6 +69,17 @@ function PublicJourneyPage() {
     <JourneyExperience
       initialState={access.state}
       answerQuestion={(vars) => answer({ data: { token, ...vars } })}
+      onCompleted={() => void accessQuery.refetch()}
+      trackJourneyEvent={(data) =>
+        trackInvite({
+          data: {
+            token,
+            eventName: data.eventName,
+            nodeCode: data.nodeCode,
+            metadata: data.metadata,
+          },
+        })
+      }
     />
   );
 }

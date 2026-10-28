@@ -76,9 +76,18 @@ function JourneyPage() {
 export function JourneyExperience({
   initialState,
   answerQuestion,
+  onCompleted,
+  trackJourneyEvent,
 }: {
   initialState: NonNullable<State>;
   answerQuestion: (vars: { nodeCode: string; optionCode: string }) => Promise<State>;
+  onCompleted?: () => void;
+  trackJourneyEvent?: (data: {
+    sessionId: string;
+    eventName: "discovery_shown";
+    nodeCode: string;
+    metadata: Record<string, unknown>;
+  }) => Promise<unknown>;
 }) {
   const navigate = useNavigate();
   const track = useServerFn(trackEventFn);
@@ -180,14 +189,21 @@ export function JourneyExperience({
             shownTerritories.current.add(node.territory);
             discoveryRef.current = item;
             setDiscovery(item);
-            void track({
-              data: {
-                sessionId,
-                eventName: "discovery_shown",
-                nodeCode: node.code,
-                metadata: { serviceCode: service.code },
-              },
-            });
+            void (trackJourneyEvent
+              ? trackJourneyEvent({
+                  sessionId,
+                  eventName: "discovery_shown",
+                  nodeCode: node.code,
+                  metadata: { serviceCode: service.code },
+                })
+              : track({
+                  data: {
+                    sessionId,
+                    eventName: "discovery_shown",
+                    nodeCode: node.code,
+                    metadata: { serviceCode: service.code },
+                  },
+                }));
           }
         }
       }
@@ -208,6 +224,10 @@ export function JourneyExperience({
   });
 
   function goToResult() {
+    if (onCompleted) {
+      onCompleted();
+      return;
+    }
     navigate({ to: "/resultado/$sessionId", params: { sessionId } });
   }
 

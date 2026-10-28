@@ -6,6 +6,20 @@ const publicToken = z.string().min(20).max(256);
 const inviteInput = z.object({
   clientName: z.string().trim().min(2).max(160),
 });
+const trackingInput = z.object({
+  eventName: z.enum([
+    "journey_started",
+    "territory_started",
+    "question_answered",
+    "discovery_shown",
+    "territory_completed",
+    "journey_abandoned",
+    "result_viewed",
+    "journey_restarted",
+  ]),
+  nodeCode: z.string().max(32).nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
 
 function inviteExpiresAt() {
   const expiresAt = new Date();
@@ -23,7 +37,9 @@ export const startJourneyFn = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }) => {
+    const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
     const { createSession } = await import("./journey.server");
+    await requireJourneyAdminSession();
     const id = await createSession(data.name, data.company);
     return { sessionId: id };
   });
@@ -31,7 +47,9 @@ export const startJourneyFn = createServerFn({ method: "POST" })
 export const getJourneyStateFn = createServerFn({ method: "POST" })
   .inputValidator((data) => z.object({ sessionId: uuid }).parse(data))
   .handler(async ({ data }) => {
+    const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
     const { getState } = await import("./journey.server");
+    await requireJourneyAdminSession();
     return getState(data.sessionId);
   });
 
@@ -46,7 +64,9 @@ export const answerQuestionFn = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }) => {
+    const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
     const { saveAnswer } = await import("./journey.server");
+    await requireJourneyAdminSession();
     return saveAnswer(data.sessionId, data.nodeCode, data.optionCode);
   });
 
@@ -184,32 +204,20 @@ export const answerInviteQuestionFn = createServerFn({ method: "POST" })
 export const getResultFn = createServerFn({ method: "POST" })
   .inputValidator((data) => z.object({ sessionId: uuid }).parse(data))
   .handler(async ({ data }) => {
+    const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
     const { buildResult } = await import("./journey.server");
+    await requireJourneyAdminSession();
     return buildResult(data.sessionId);
   });
 
 export const trackEventFn = createServerFn({ method: "POST" })
   .inputValidator((data) =>
-    z
-      .object({
-        sessionId: uuid.nullable().optional(),
-        eventName: z.enum([
-          "journey_started",
-          "territory_started",
-          "question_answered",
-          "discovery_shown",
-          "territory_completed",
-          "journey_abandoned",
-          "result_viewed",
-          "journey_restarted",
-        ]),
-        nodeCode: z.string().max(32).nullable().optional(),
-        metadata: z.record(z.string(), z.unknown()).optional(),
-      })
-      .parse(data),
+    trackingInput.extend({ sessionId: uuid.nullable().optional() }).parse(data),
   )
   .handler(async ({ data }) => {
+    const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
     const { logEvent } = await import("./journey.server");
+    await requireJourneyAdminSession();
     await logEvent(
       data.sessionId ?? null,
       data.eventName,
@@ -219,9 +227,18 @@ export const trackEventFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const trackInviteEventFn = createServerFn({ method: "POST" })
+  .inputValidator((data) => trackingInput.extend({ token: publicToken }).parse(data))
+  .handler(async ({ data }) => {
+    const { trackInviteEvent } = await import("./journey-invites.server");
+    return trackInviteEvent(data.token, data.eventName, data.nodeCode ?? null, data.metadata ?? {});
+  });
+
 export const restartJourneyFn = createServerFn({ method: "POST" })
   .inputValidator((data) => z.object({ sessionId: uuid }).parse(data))
   .handler(async ({ data }) => {
+    const { requireJourneyAdminSession } = await import("./journey-admin-auth.server");
     const { restart } = await import("./journey.server");
+    await requireJourneyAdminSession();
     return { sessionId: await restart(data.sessionId) };
   });
